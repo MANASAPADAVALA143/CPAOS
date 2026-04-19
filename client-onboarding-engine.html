@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinReportAI — AI Client Onboarding Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0A1628;
+  --blue: #1B3A6B;
+  --accent: #2563EB;
+  --gold: #F59E0B;
+  --green: #059669;
+  --red: #DC2626;
+  --light: #F8FAFF;
+  --white: #FFFFFF;
+  --gray: #64748B;
+  --border: #E2E8F0;
+  --card: #FFFFFF;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--light);
+  color: var(--navy);
+  min-height: 100vh;
+}
+
+header {
+  background: var(--navy);
+  padding: 16px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.menu-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: white;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-toggle:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  top: 60px;
+  background: rgba(10, 22, 40, 0.45);
+  z-index: 150;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.nav-backdrop.show {
+  display: block;
+  opacity: 1;
+}
+
+.logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-badge {
+  background: var(--accent);
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+}
+
+nav { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.nav-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.nav-btn.ghost {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+}
+
+.nav-btn.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.nav-btn:hover { transform: translateY(-1px); opacity: 0.9; }
+
+.app-container {
+  display: flex;
+  min-height: calc(100vh - 60px);
+}
+
+.sidebar {
+  width: 260px;
+  background: var(--navy);
+  padding: 24px 0;
+  flex-shrink: 0;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 8px 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  margin-top: 16px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+  background: rgba(37,99,235,0.15);
+  color: white;
+  border-left-color: var(--accent);
+}
+
+.sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.sidebar-badge.green { background: var(--green); }
+.sidebar-badge.gold { background: var(--gold); color: var(--navy); }
+.sidebar-badge.red { background: var(--red); }
+
+.main-content {
+  flex: 1;
+  padding: 32px 40px;
+  overflow-y: auto;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.page-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.page-subtitle {
+  color: var(--gray);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent);
+}
+
+.stat-card.green::before { background: var(--green); }
+.stat-card.gold::before { background: var(--gold); }
+.stat-card.red::before { background: var(--red); }
+
+.stat-label {
+  font-size: 12px;
+  color: var(--gray);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 32px;
+  color: var(--navy);
+  margin: 6px 0 4px;
+}
+
+.stat-change {
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.stat-change.down { color: var(--red); }
+
+.section-card {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.section-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--navy); }
+.btn:hover { transform: translateY(-1px); opacity: 0.9; }
+
+table { width: 100%; border-collapse: collapse; }
+
+th {
+  padding: 12px 24px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray);
+  background: var(--light);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 14px 24px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--light); }
+
+.client-name {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.client-sub {
+  font-size: 12px;
+  color: var(--gray);
+}
+
+.country-flag { font-size: 16px; }
+
+.progress-bar {
+  width: 120px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.progress-fill.green { background: var(--green); }
+.progress-fill.gold { background: var(--gold); }
+.progress-fill.red { background: var(--red); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-blue { background: #EFF6FF; color: #1D4ED8; }
+.badge-green { background: #ECFDF5; color: #059669; }
+.badge-gold { background: #FFFBEB; color: #D97706; }
+.badge-red { background: #FEF2F2; color: #DC2626; }
+.badge-gray { background: #F8FAFC; color: #64748B; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full { grid-column: 1 / -1; }
+
+label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+label .required { color: var(--red); }
+
+input, select, textarea {
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--navy);
+  background: white;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+
+.country-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.country-card {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.country-card:hover,
+.country-card.selected {
+  border-color: var(--accent);
+  background: #EFF6FF;
+}
+
+.country-card .flag { font-size: 24px; }
+.country-card .country-name { font-weight: 600; font-size: 14px; }
+.country-card .country-reqs { font-size: 11px; color: var(--gray); }
+
+.checklist-container { padding: 24px; }
+
+.checklist-category {
+  margin-bottom: 20px;
+}
+
+.category-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  background: white;
+  transition: all 0.2s;
+}
+
+.checklist-item:hover { border-color: var(--accent); background: #F8FAFF; }
+
+.check-icon { font-size: 18px; cursor: pointer; }
+
+.doc-name { font-size: 14px; font-weight: 500; flex: 1; }
+.doc-desc { font-size: 12px; color: var(--gray); }
+
+.priority-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.priority-dot.critical { background: var(--red); }
+.priority-dot.important { background: var(--gold); }
+.priority-dot.optional { background: var(--green); }
+
+.upload-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: #EFF6FF;
+}
+
+.drop-zone .icon { font-size: 40px; margin-bottom: 12px; }
+.drop-zone p { color: var(--gray); font-size: 14px; }
+.drop-zone strong { color: var(--accent); }
+
+.timeline {
+  position: relative;
+  padding-left: 32px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -26px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 3px solid white;
+  box-shadow: 0 0 0 2px var(--border);
+}
+
+.timeline-dot.done { background: var(--green); box-shadow: 0 0 0 2px var(--green); }
+.timeline-dot.active { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.timeline-dot.pending { background: var(--gray); box-shadow: 0 0 0 2px var(--gray); }
+
+.timeline-title { font-weight: 600; font-size: 14px; }
+.timeline-time { font-size: 12px; color: var(--gray); margin-top: 2px; }
+.timeline-desc { font-size: 13px; color: var(--gray); margin-top: 4px; }
+
+.whatsapp-preview {
+  background: #E8FDD8;
+  border-radius: 12px;
+  padding: 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  border: 1px solid #C8F0A8;
+  white-space: pre-line;
+  color: #1a1a1a;
+}
+
+.whatsapp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #C8F0A8;
+}
+
+.wa-avatar {
+  width: 36px;
+  height: 36px;
+  background: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.market-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.market-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(37,99,235,0.08);
+  transform: translateY(-2px);
+}
+
+.market-flag { font-size: 32px; margin-bottom: 10px; }
+.market-name { font-weight: 700; font-size: 16px; }
+.market-sub { color: var(--gray); font-size: 13px; margin-bottom: 12px; }
+
+.market-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.market-tag {
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.market-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 12px;
+}
+
+.market-price span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--gray);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.pricing-card {
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.pricing-card.featured {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.pricing-tier { font-size: 13px; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; }
+.pricing-price { font-family: 'DM Serif Display', serif; font-size: 36px; color: var(--navy); margin: 8px 0 4px; }
+.pricing-period { font-size: 13px; color: var(--gray); margin-bottom: 16px; }
+
+.pricing-features { list-style: none; margin-bottom: 24px; }
+.pricing-features li {
+  padding: 6px 0;
+  font-size: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.pricing-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--light);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--gray);
+  transition: all 0.2s;
+}
+
+.tab.active {
+  background: white;
+  color: var(--navy);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.roi-input-section { padding: 24px; }
+.roi-result-section {
+  background: var(--navy);
+  color: white;
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.roi-result-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.roi-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.roi-metric:last-child { border-bottom: none; }
+.roi-metric-label { font-size: 14px; color: rgba(255,255,255,0.6); }
+.roi-metric-value { font-size: 20px; font-weight: 700; color: var(--gold); }
+.roi-metric-value.green { color: #4ADE80; }
+
+.notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--navy);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 1000;
+}
+
+.notification.show { transform: translateY(0); opacity: 1; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--gray);
+}
+
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 18px; font-weight: 600; color: var(--navy); margin-bottom: 8px; }
+
+.checklist-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+}
+
+@media (max-width: 960px) {
+  .checklist-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .markets-grid { grid-template-columns: 1fr; }
+  .country-grid { grid-template-columns: repeat(2, 1fr); }
+  header { padding: 12px 16px; }
+  .menu-toggle { display: inline-flex; }
+  nav .nav-btn.ghost { display: none; }
+  nav .nav-btn.primary { padding: 8px 14px; font-size: 13px; }
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    z-index: 160;
+    width: min(280px, 88vw);
+    height: calc(100vh - 60px);
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    box-shadow: 8px 0 32px rgba(0,0,0,0.2);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open navigation menu" aria-expanded="false" onclick="toggleMobileNav()">☰</button>
+    <div class="logo" style="min-width:0;">
+      FinReportAI <span class="logo-badge">AI OS</span>
+    </div>
+  </div>
+  <nav>
+    <button type="button" class="nav-btn ghost" onclick="showView('markets')">🌍 Global Markets</button>
+    <button type="button" class="nav-btn ghost" onclick="showView('pricing')">💰 Pricing</button>
+    <button type="button" class="nav-btn ghost" onclick="showView('roi')">📊 ROI Calculator</button>
+    <button type="button" class="nav-btn primary" onclick="showView('intake')">+ New Client</button>
+  </nav>
+</header>
+
+<div class="nav-backdrop" id="nav-backdrop" onclick="closeMobileNav()" aria-hidden="true"></div>
+
+<div class="app-container">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-section">Dashboard</div>
+    <div class="sidebar-item active" data-view="dashboard" onclick="switchSidebar(this, 'dashboard')">
+      <span class="icon">📊</span> Overview
+      <span class="sidebar-badge gold">3</span>
+    </div>
+    <div class="sidebar-item" data-view="clients" onclick="switchSidebar(this, 'clients')">
+      <span class="icon">👥</span> All Clients
+      <span class="sidebar-badge">24</span>
+    </div>
+
+    <div class="sidebar-section">Onboarding</div>
+    <div class="sidebar-item" data-view="intake" onclick="switchSidebar(this, 'intake')">
+      <span class="icon">📥</span> New Client Intake
+    </div>
+    <div class="sidebar-item" data-view="checklist" onclick="switchSidebar(this, 'checklist')">
+      <span class="icon">✅</span> Document Checker
+      <span class="sidebar-badge red">5</span>
+    </div>
+    <div class="sidebar-item" data-view="upload" onclick="switchSidebar(this, 'upload')">
+      <span class="icon">📤</span> Upload Portal
+    </div>
+
+    <div class="sidebar-section">Automation</div>
+    <div class="sidebar-item" data-view="whatsapp" onclick="switchSidebar(this, 'whatsapp')">
+      <span class="icon">💬</span> WhatsApp Bot
+      <span class="sidebar-badge green">ON</span>
+    </div>
+    <div class="sidebar-item" data-view="timeline" onclick="switchSidebar(this, 'timeline')">
+      <span class="icon">⏱️</span> Status Tracker
+    </div>
+
+    <div class="sidebar-section">Global</div>
+    <div class="sidebar-item" data-view="markets" onclick="switchSidebar(this, 'markets')">
+      <span class="icon">🌍</span> Markets
+    </div>
+    <div class="sidebar-item" data-view="pricing" onclick="switchSidebar(this, 'pricing')">
+      <span class="icon">💰</span> Pricing
+    </div>
+    <div class="sidebar-item" data-view="roi" onclick="switchSidebar(this, 'roi')">
+      <span class="icon">📈</span> ROI Calculator
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <div class="view active" id="view-dashboard">
+      <div class="page-title">Client Onboarding Dashboard</div>
+      <div class="page-subtitle">AI-powered onboarding for CA/CPA/ACCA firms globally • Powered by FinReportAI</div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Active Onboardings</div>
+          <div class="stat-value">24</div>
+          <div class="stat-change">↑ 4 this week</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Completed (30 days)</div>
+          <div class="stat-value">18</div>
+          <div class="stat-change">↑ 94% completion rate</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-label">Avg. Onboarding Time</div>
+          <div class="stat-value">52h</div>
+          <div class="stat-change">↓ Was 3 weeks manually</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Docs Pending</div>
+          <div class="stat-value">31</div>
+          <div class="stat-change down">↑ 5 urgent follow-ups</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Active Client Onboardings</div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="showView('clients')">View All</button>
+            <button type="button" class="btn btn-primary" onclick="document.querySelector('.sidebar-item[data-view=intake]').click()">+ New Client</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Country</th>
+              <th>Entity</th>
+              <th>Progress</th>
+              <th>Status</th>
+              <th>Days Left</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="client-table-body">
+            <tr>
+              <td>
+                <div class="client-name">Harrington & Sons Ltd</div>
+                <div class="client-sub">Started 2 days ago</div>
+              </td>
+              <td><span class="country-flag">🇬🇧</span> UK</td>
+              <td><span class="badge badge-blue">Limited Co.</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="progress-bar"><div class="progress-fill green" style="width:85%"></div></div>
+                  <span style="font-size:12px;font-weight:600;color:var(--green)">85%</span>
+                </div>
+              </td>
+              <td><span class="badge badge-green">✓ Nearly Done</span></td>
+              <td><span style="font-weight:600;color:var(--green)">1 day</span></td>
+              <td><button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="showChecklist('uk', 'private-limited', 'Harrington & Sons Ltd')">Review</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="client-name">Patel Technologies Inc</div>
+                <div class="client-sub">Started 4 days ago</div>
+              </td>
+              <td><span class="country-flag">🇺🇸</span> USA</td>
+              <td><span class="badge badge-blue">S-Corp</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="progress-bar"><div class="progress-fill gold" style="width:60%"></div></div>
+                  <span style="font-size:12px;font-weight:600;color:var(--gold)">60%</span>
+                </div>
+              </td>
+              <td><span class="badge badge-gold">⏳ In Progress</span></td>
+              <td><span style="font-weight:600;color:var(--gold)">3 days</span></td>
+              <td><button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="showChecklist('usa', 'business', 'Patel Technologies Inc')">Review</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="client-name">Al Mansouri Trading LLC</div>
+                <div class="client-sub">Started 6 days ago</div>
+              </td>
+              <td><span class="country-flag">🇦🇪</span> UAE</td>
+              <td><span class="badge badge-blue">LLC</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="progress-bar"><div class="progress-fill red" style="width:35%"></div></div>
+                  <span style="font-size:12px;font-weight:600;color:var(--red)">35%</span>
+                </div>
+              </td>
+              <td><span class="badge badge-red">⚠️ Urgent</span></td>
+              <td><span style="font-weight:600;color:var(--red)">1 day</span></td>
+              <td><button type="button" class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="sendReminder()">Send WhatsApp</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="client-name">Sydney Ventures Pty</div>
+                <div class="client-sub">Started 1 day ago</div>
+              </td>
+              <td><span class="country-flag">🇦🇺</span> Australia</td>
+              <td><span class="badge badge-blue">Pty Ltd</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="progress-bar"><div class="progress-fill" style="width:20%"></div></div>
+                  <span style="font-size:12px;font-weight:600;color:var(--accent)">20%</span>
+                </div>
+              </td>
+              <td><span class="badge badge-blue">🔄 Started</span></td>
+              <td><span style="font-weight:600;color:var(--accent)">6 days</span></td>
+              <td><button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="showChecklist('australia', 'business', 'Sydney Ventures Pty')">Review</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="client-name">Sharma & Associates</div>
+                <div class="client-sub">Started 3 days ago</div>
+              </td>
+              <td><span class="country-flag">🇮🇳</span> India</td>
+              <td><span class="badge badge-blue">Pvt Ltd</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="progress-bar"><div class="progress-fill green" style="width:70%"></div></div>
+                  <span style="font-size:12px;font-weight:600;color:var(--green)">70%</span>
+                </div>
+              </td>
+              <td><span class="badge badge-green">📥 Uploading</span></td>
+              <td><span style="font-weight:600;color:var(--green)">4 days</span></td>
+              <td><button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="showChecklist('india', 'private-limited', 'Sharma & Associates')">Review</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="view" id="view-intake">
+      <div class="page-title">New Client Intake</div>
+      <div class="page-subtitle">AI generates personalised document checklist based on country + entity type</div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Step 1 — Select Country</div>
+        </div>
+        <div style="padding:24px;">
+          <div class="country-grid">
+            <div class="country-card selected" onclick="selectCountry(this, 'usa')">
+              <div class="flag">🇺🇸</div>
+              <div>
+                <div class="country-name">United States</div>
+                <div class="country-reqs">IRS • W-9 • 1099 • 1040</div>
+              </div>
+            </div>
+            <div class="country-card" onclick="selectCountry(this, 'uk')">
+              <div class="flag">🇬🇧</div>
+              <div>
+                <div class="country-name">United Kingdom</div>
+                <div class="country-reqs">HMRC • UTR • SA100 • CT600 • VAT</div>
+              </div>
+            </div>
+            <div class="country-card" onclick="selectCountry(this, 'uae')">
+              <div class="flag">🇦🇪</div>
+              <div>
+                <div class="country-name">UAE / Dubai</div>
+                <div class="country-reqs">FTA • TRN • Corporate Tax • VAT</div>
+              </div>
+            </div>
+            <div class="country-card" onclick="selectCountry(this, 'australia')">
+              <div class="flag">🇦🇺</div>
+              <div>
+                <div class="country-name">Australia</div>
+                <div class="country-reqs">ATO • TFN • BAS • PAYG • Super</div>
+              </div>
+            </div>
+            <div class="country-card" onclick="selectCountry(this, 'india')">
+              <div class="flag">🇮🇳</div>
+              <div>
+                <div class="country-name">India</div>
+                <div class="country-reqs">IT Dept • GST • TDS • MCA • PAN</div>
+              </div>
+            </div>
+            <div class="country-card" onclick="selectCountry(this, 'eu')">
+              <div class="flag">🇪🇺</div>
+              <div>
+                <div class="country-name">EU / Europe</div>
+                <div class="country-reqs">VAT ID • Local Tax • GDPR</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Step 2 — Client Information</div>
+        </div>
+        <div style="padding:24px;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Client Name <span class="required">*</span></label>
+              <input type="text" placeholder="e.g. John Smith / ABC Corp Ltd" id="client-name-input">
+            </div>
+            <div class="form-group">
+              <label>Company / Trading Name</label>
+              <input type="text" placeholder="e.g. Smith Consulting LLC">
+            </div>
+            <div class="form-group">
+              <label>Email Address <span class="required">*</span></label>
+              <input type="email" placeholder="client@company.com" id="client-email-input">
+            </div>
+            <div class="form-group">
+              <label>WhatsApp Number <span class="required">*</span></label>
+              <input type="tel" placeholder="+1 555 000 0000" id="client-phone-input">
+            </div>
+            <div class="form-group">
+              <label>Entity Type <span class="required">*</span></label>
+              <select id="entity-select" onchange="updateEntityType(this.value)">
+                <option value="">Select entity type...</option>
+                <option value="individual">Individual / Salaried</option>
+                <option value="sole-trader">Sole Trader / Sole Prop</option>
+                <option value="partnership">Partnership</option>
+                <option value="business">Business Owner (SME)</option>
+                <option value="private-limited">Private Limited / LLC</option>
+                <option value="plc">PLC / Public Company</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Financial Year</label>
+              <select>
+                <option>2024-25</option>
+                <option>2023-24</option>
+                <option>2022-23</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Services Required</label>
+              <select>
+                <option>Bookkeeping + Tax</option>
+                <option>Tax Only</option>
+                <option>Bookkeeping Only</option>
+                <option>Full Advisory</option>
+                <option>IFRS Reporting</option>
+                <option>Audit Support</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Monthly Turnover (approx)</label>
+              <input type="text" placeholder="e.g. $50,000 / £30,000 / ₹25L">
+            </div>
+            <div class="form-group full">
+              <label>Special Notes / Prior Accountant</label>
+              <textarea rows="3" placeholder="Any special circumstances, prior accountant details, outstanding issues..."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="generateChecklist()" style="padding:12px 28px;font-size:15px;">
+              🤖 Generate AI Checklist & Start Onboarding
+            </button>
+            <button type="button" class="btn btn-outline" style="padding:12px 28px;">Save Draft</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-checklist">
+      <div class="page-title">AI Document Checklist</div>
+      <div class="page-subtitle">Personalised for <span id="checklist-client-name">Client</span> • <span id="checklist-country">Country</span> • <span id="checklist-entity">Entity</span></div>
+
+      <div class="checklist-layout">
+        <div>
+          <div class="section-card">
+            <div class="section-header">
+              <div class="section-title">Document Requirements</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:12px;color:var(--gray);">
+                  🔴 Critical &nbsp; 🟡 Important &nbsp; 🟢 Optional
+                </span>
+                <button type="button" class="btn btn-primary" onclick="sendWhatsApp()" style="padding:6px 14px;font-size:13px;">📱 Send WhatsApp</button>
+              </div>
+            </div>
+            <div class="checklist-container" id="checklist-items"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-card" style="margin-bottom:16px;">
+            <div class="section-header">
+              <div class="section-title">📱 WhatsApp Preview</div>
+            </div>
+            <div style="padding:16px;">
+              <div class="whatsapp-header">
+                <div class="wa-avatar">FR</div>
+                <div>
+                  <div style="font-weight:600;font-size:14px;">FinReportAI Bot</div>
+                  <div style="font-size:12px;color:var(--gray);">Online • AI-powered</div>
+                </div>
+              </div>
+              <div class="whatsapp-preview" id="whatsapp-preview-text">Select a client and generate checklist to see the WhatsApp message preview.</div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <div class="section-title">📊 Completion Status</div>
+            </div>
+            <div style="padding:20px;">
+              <div style="text-align:center;margin-bottom:16px;">
+                <div style="font-family:'DM Serif Display',serif;font-size:48px;color:var(--accent);" id="completion-pct">0%</div>
+                <div style="color:var(--gray);font-size:13px;">Documents Complete</div>
+              </div>
+              <div class="progress-bar" style="width:100%;height:10px;margin-bottom:16px;">
+                <div class="progress-fill" style="width:0%" id="completion-bar"></div>
+              </div>
+              <div id="doc-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                <div style="background:var(--light);padding:10px;border-radius:8px;text-align:center;">
+                  <div style="font-weight:700;font-size:20px;color:var(--green);" id="docs-received">0</div>
+                  <div style="color:var(--gray);">Received</div>
+                </div>
+                <div style="background:var(--light);padding:10px;border-radius:8px;text-align:center;">
+                  <div style="font-weight:700;font-size:20px;color:var(--red);" id="docs-pending">0</div>
+                  <div style="color:var(--gray);">Pending</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-upload">
+      <div class="page-title">Document Upload Portal</div>
+      <div class="page-subtitle">Secure upload • AI verification • Instant confirmation</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div class="section-card">
+            <div class="section-header"><div class="section-title">Upload Documents</div></div>
+            <div style="padding:24px;">
+              <div class="drop-zone" id="drop-zone"
+                ondragover="event.preventDefault();this.classList.add('drag-over')"
+                ondragleave="this.classList.remove('drag-over')"
+                ondrop="handleDrop(event)"
+                onclick="document.getElementById('file-input').click()">
+                <div class="icon">📄</div>
+                <p><strong>Drop files here</strong> or click to browse</p>
+                <p style="margin-top:8px;">PDF, JPG, PNG, XLSX accepted</p>
+                <input type="file" id="file-input" multiple style="display:none" onchange="handleFileSelect(event)">
+              </div>
+              <div id="uploaded-files" style="margin-top:16px;"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-card">
+            <div class="section-header"><div class="section-title">🤖 AI Document Verification</div></div>
+            <div style="padding:24px;" id="verification-results">
+              <div class="empty-state">
+                <div class="icon">🔍</div>
+                <h3>No documents yet</h3>
+                <p>Upload documents to see AI verification results</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-whatsapp">
+      <div class="page-title">WhatsApp Automation Bot</div>
+      <div class="page-subtitle">AI-generated messages • Global coverage • Auto follow-up sequences</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="stat-card green">
+          <div class="stat-label">Messages Sent Today</div>
+          <div class="stat-value">47</div>
+          <div class="stat-change">↑ 94% delivery rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Response Rate</div>
+          <div class="stat-value">78%</div>
+          <div class="stat-change">↑ vs 32% email</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-label">Docs Collected via WA</div>
+          <div class="stat-value">183</div>
+          <div class="stat-change">This month</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Message Templates by Country</div>
+          <button type="button" class="btn btn-primary" onclick="sendBulkReminders()">📱 Send All Pending Reminders</button>
+        </div>
+        <div style="padding:24px;">
+          <div class="tabs">
+            <button type="button" class="tab active" onclick="switchTab(this, 'wa-uk')">🇬🇧 UK</button>
+            <button type="button" class="tab" onclick="switchTab(this, 'wa-usa')">🇺🇸 USA</button>
+            <button type="button" class="tab" onclick="switchTab(this, 'wa-uae')">🇦🇪 UAE</button>
+            <button type="button" class="tab" onclick="switchTab(this, 'wa-india')">🇮🇳 India</button>
+            <button type="button" class="tab" onclick="switchTab(this, 'wa-australia')">🇦🇺 Australia</button>
+          </div>
+
+          <div id="wa-uk" class="tab-content" style="display:block;">
+            <div class="whatsapp-header" style="background:#f9f9f9;padding:12px;border-radius:10px;margin-bottom:12px;">
+              <div class="wa-avatar">FR</div>
+              <div>
+                <div style="font-weight:600;font-size:14px;">FinReportAI • UK Onboarding</div>
+                <div style="font-size:12px;color:var(--gray);">AI-generated • Personalised per client</div>
+              </div>
+            </div>
+            <div class="whatsapp-preview">Dear [Client Name],
+
+Welcome to [Firm Name]! 🎉
+
+We're delighted to have you on board. To get started with your accounts, we need a few documents from you.
+
+📋 Required Documents:
+🔴 UTR Number (Unique Taxpayer Reference)
+🔴 Last 2 years SA100 Self Assessment
+🔴 P60 / P45 (if employed)
+🟡 Bank statements (12 months)
+🟡 Investment income statements
+🟢 Mortgage statements (if applicable)
+
+📤 Please upload securely here:
+[Upload Link]
+
+⏰ Deadline: [Date + 5 days]
+
+❓ Any questions? Just reply to this message and our team will help within 2 hours.
+
+— [Firm Name] Team
+Powered by FinReportAI</div>
+          </div>
+
+          <div id="wa-usa" class="tab-content" style="display:none;">
+            <div class="whatsapp-preview">Hi [First Name],
+
+Welcome to [Firm Name]! We're excited to work with you. 🌟
+
+To prepare your tax return, we'll need the following:
+
+📋 Documents Needed:
+🔴 Social Security Number (SSN) or EIN
+🔴 W-2 forms from all employers
+🔴 1099 forms (freelance/investments)
+🔴 Prior year tax return (1040)
+🟡 Bank/investment account statements
+🟡 Mortgage interest statement (Form 1098)
+🟢 Charitable donation receipts
+
+📤 Secure upload link:
+[Upload Link]
+
+Please submit by [Deadline Date] to avoid extension.
+
+Questions? Reply here anytime!
+
+[Firm Name] | Powered by FinReportAI</div>
+          </div>
+
+          <div id="wa-uae" class="tab-content" style="display:none;">
+            <div class="whatsapp-preview">Dear [Name],
+
+Ahlan wa sahlan! Welcome to [Firm Name]. 🌟
+
+To begin your UAE accounting setup, we require:
+
+📋 Required Documents:
+🔴 Emirates ID (front & back)
+🔴 Trade License (current year)
+🔴 TRN (Tax Registration Number)
+🔴 VAT returns (last 4 quarters)
+🟡 Bank statements (12 months)
+🟡 Audited financial statements
+🟢 Memorandum of Association
+
+⚠️ UAE Corporate Tax is now in effect.
+We'll ensure full compliance.
+
+📤 Upload securely:
+[Upload Link]
+
+Deadline: [Date]
+
+For queries, WhatsApp us anytime.
+
+[Firm Name] | FinReportAI</div>
+          </div>
+
+          <div id="wa-india" class="tab-content" style="display:none;">
+            <div class="whatsapp-preview">नमस्ते [Name] जी! / Dear [Name],
+
+[CA Firm Name] में आपका स्वागत है! 🙏
+
+आपके accounts शुरू करने के लिए निम्न documents चाहिए:
+
+📋 जरूरी Documents:
+🔴 PAN Card (self + spouse if applicable)
+🔴 Aadhaar Card
+🔴 Form 16 / Form 16A (employer)
+🔴 AIS (Annual Information Statement)
+🔴 Bank statements (12 months, all accounts)
+🟡 GST Returns (GSTR-1, GSTR-3B, GSTR-2B)
+🟡 TDS Certificates (Form 26AS)
+🟢 Investment proofs (80C/80D/80G)
+
+📤 यहाँ upload करें:
+[Secure Link]
+
+⏰ Deadline: [Date]
+
+कोई सवाल हो तो WhatsApp पर बताएं।
+
+— [CA Firm] | FinReportAI द्वारा संचालित</div>
+          </div>
+
+          <div id="wa-australia" class="tab-content" style="display:none;">
+            <div class="whatsapp-preview">G'day [First Name]! 👋
+
+Welcome to [Firm Name]. We're looking forward to helping with your tax and accounting needs.
+
+📋 Documents Required:
+🔴 TFN (Tax File Number)
+🔴 Payment summaries / Group certificates
+🔴 PAYG withholding summary
+🟡 Bank statements (12 months)
+🟡 Investment/dividend statements
+🟡 Rental income/expense records
+🟢 Private health insurance statement
+🟢 Work-related expense receipts
+
+For business clients, also needed:
+🔴 ABN confirmation
+🔴 BAS statements (last 4 quarters)
+🔴 Superannuation records
+
+📤 Upload here:
+[Secure Upload Link]
+
+Deadline: [Date]
+
+Any questions? Just reply! 😊
+
+[Firm Name] | FinReportAI</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-timeline">
+      <div class="page-title">Onboarding Status Tracker</div>
+      <div class="page-subtitle">Real-time tracking • Al Mansouri Trading LLC • 🇦🇪 UAE</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="section-card">
+          <div class="section-header"><div class="section-title">Onboarding Timeline</div></div>
+          <div style="padding:24px;">
+            <div class="timeline">
+              <div class="timeline-item">
+                <div class="timeline-dot done"></div>
+                <div class="timeline-title">Engagement Letter Signed</div>
+                <div class="timeline-time">2 days ago • 09:42 AM</div>
+                <div class="timeline-desc">DocuSign completed. Onboarding sequence initiated automatically.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot done"></div>
+                <div class="timeline-title">Welcome WhatsApp Sent</div>
+                <div class="timeline-time">2 days ago • 09:43 AM</div>
+                <div class="timeline-desc">AI-generated document checklist sent. Upload link included.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot done"></div>
+                <div class="timeline-title">Trade License Received</div>
+                <div class="timeline-time">Yesterday • 02:15 PM</div>
+                <div class="timeline-desc">✅ AI verified: Current year, valid, correct entity name.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot active"></div>
+                <div class="timeline-title">Day 3 Reminder Sent</div>
+                <div class="timeline-time">Today • 08:00 AM</div>
+                <div class="timeline-desc">⏳ Waiting for: Emirates ID, TRN, VAT returns, bank statements.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot pending"></div>
+                <div class="timeline-title">All Documents Verified</div>
+                <div class="timeline-time">Pending</div>
+                <div class="timeline-desc">AI will verify each document on upload.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot pending"></div>
+                <div class="timeline-title">Client Brief Auto-Generated</div>
+                <div class="timeline-time">Pending</div>
+                <div class="timeline-desc">Claude will generate full client profile for CA team.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot pending"></div>
+                <div class="timeline-title">Onboarding Complete 🎉</div>
+                <div class="timeline-time">Target: Tomorrow</div>
+                <div class="timeline-desc">CA team briefed. Work begins.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-card" style="margin-bottom:16px;">
+            <div class="section-header"><div class="section-title">⚡ Quick Actions</div></div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+              <button type="button" class="btn btn-primary" onclick="sendReminder()" style="width:100%;padding:12px;">📱 Send Urgent WhatsApp Reminder</button>
+              <button type="button" class="btn btn-outline" style="width:100%;padding:12px;">📧 Send Email Follow-Up</button>
+              <button type="button" class="btn btn-outline" style="width:100%;padding:12px;">📞 Schedule Call Reminder</button>
+              <button type="button" class="btn btn-outline" style="width:100%;padding:12px;" onclick="showChecklist('uae', 'business', 'Al Mansouri Trading LLC')">📋 View Document Checklist</button>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header"><div class="section-title">🤖 AI Risk Assessment</div></div>
+            <div style="padding:20px;">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div style="font-size:40px;">⚠️</div>
+                <div>
+                  <div style="font-weight:700;color:var(--red);">HIGH RISK</div>
+                  <div style="font-size:13px;color:var(--gray);">Action required within 24 hours</div>
+                </div>
+              </div>
+              <div style="background:#FEF2F2;padding:14px;border-radius:8px;border-left:4px solid var(--red);margin-bottom:12px;">
+                <div style="font-weight:600;font-size:13px;color:var(--red);">⚠️ UAE VAT returns missing</div>
+                <div style="font-size:12px;color:var(--gray);margin-top:4px;">Client has not uploaded 4 quarters of VAT returns. Penalty risk if not received before deadline.</div>
+              </div>
+              <div style="background:#FFFBEB;padding:14px;border-radius:8px;border-left:4px solid var(--gold);">
+                <div style="font-weight:600;font-size:13px;color:var(--gold);">🟡 Corporate Tax registration</div>
+                <div style="font-size:12px;color:var(--gray);margin-top:4px;">Verify if client has registered for UAE CT. New requirement since June 2023.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-markets">
+      <div class="page-title">Global Markets</div>
+      <div class="page-subtitle">FinReportAI Client Onboarding Engine works in all major markets</div>
+
+      <div class="markets-grid">
+        <div class="market-card">
+          <div class="market-flag">🇺🇸</div>
+          <div class="market-name">United States</div>
+          <div class="market-sub">52,000+ CPA firms • $2M-$50M revenue firms</div>
+          <div class="market-tags">
+            <span class="market-tag">IRS Filing</span>
+            <span class="market-tag">1040/1120</span>
+            <span class="market-tag">QuickBooks</span>
+            <span class="market-tag">Sales Tax</span>
+          </div>
+          <div class="market-price">$15K–$25K <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ $3K–$5K/month retainer</div>
+        </div>
+
+        <div class="market-card">
+          <div class="market-flag">🇬🇧</div>
+          <div class="market-name">United Kingdom</div>
+          <div class="market-sub">30,000+ ACCA/ICAEW firms • MTD compliance</div>
+          <div class="market-tags">
+            <span class="market-tag">HMRC MTD</span>
+            <span class="market-tag">SA100</span>
+            <span class="market-tag">CT600</span>
+            <span class="market-tag">IFRS</span>
+          </div>
+          <div class="market-price">£8K–£15K <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ £1.5K–£3K/month retainer</div>
+        </div>
+
+        <div class="market-card">
+          <div class="market-flag">🇦🇪</div>
+          <div class="market-name">UAE / Dubai</div>
+          <div class="market-sub">New Corporate Tax • VAT mandatory • Fast growing</div>
+          <div class="market-tags">
+            <span class="market-tag">FTA VAT</span>
+            <span class="market-tag">Corp Tax</span>
+            <span class="market-tag">Free Zone</span>
+            <span class="market-tag">IFRS</span>
+          </div>
+          <div class="market-price">$12K–$20K <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ $2K–$4K/month retainer</div>
+        </div>
+
+        <div class="market-card">
+          <div class="market-flag">🇦🇺</div>
+          <div class="market-name">Australia</div>
+          <div class="market-sub">CPA Australia members • BAS/PAYG/Super</div>
+          <div class="market-tags">
+            <span class="market-tag">ATO</span>
+            <span class="market-tag">BAS</span>
+            <span class="market-tag">Super</span>
+            <span class="market-tag">PAYG</span>
+          </div>
+          <div class="market-price">AUD 18K–28K <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ AUD 3K–5K/month retainer</div>
+        </div>
+
+        <div class="market-card">
+          <div class="market-flag">🇮🇳</div>
+          <div class="market-name">India</div>
+          <div class="market-sub">70,000+ CA firms • GST + IT + MCA complexity</div>
+          <div class="market-tags">
+            <span class="market-tag">GST</span>
+            <span class="market-tag">ITR</span>
+            <span class="market-tag">TDS</span>
+            <span class="market-tag">MCA</span>
+          </div>
+          <div class="market-price">₹3L–₹8L <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ ₹50K–₹1L/month retainer</div>
+        </div>
+
+        <div class="market-card">
+          <div class="market-flag">🇸🇬</div>
+          <div class="market-name">Singapore</div>
+          <div class="market-sub">ACCA hub • IFRS mandatory • Regional HQs</div>
+          <div class="market-tags">
+            <span class="market-tag">IRAS</span>
+            <span class="market-tag">GST</span>
+            <span class="market-tag">IFRS</span>
+            <span class="market-tag">ACRA</span>
+          </div>
+          <div class="market-price">SGD 18K–25K <span>build fee</span></div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px;">+ SGD 3K–4K/month retainer</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-pricing">
+      <div class="page-title">Pricing — AI OS for CA/CPA Firms</div>
+      <div class="page-subtitle">Based on Sam Arami's proven framework • Powered by FinReportAI + Claude AI</div>
+
+      <div class="pricing-grid" style="margin-bottom:28px;">
+        <div class="pricing-card">
+          <div class="pricing-tier">Starter</div>
+          <div class="pricing-price">$10,000</div>
+          <div class="pricing-period">One-time build fee + $2K/month</div>
+          <ul class="pricing-features">
+            <li>Client Onboarding Engine</li>
+            <li>WhatsApp automation</li>
+            <li>Document checklist (1 country)</li>
+            <li>Email follow-up sequences</li>
+            <li>Basic status dashboard</li>
+            <li>30-day support</li>
+          </ul>
+          <button type="button" class="btn btn-outline" style="width:100%;padding:12px;">Book Discovery Call</button>
+        </div>
+
+        <div class="pricing-card featured">
+          <div class="pricing-badge">MOST POPULAR</div>
+          <div class="pricing-tier">Professional</div>
+          <div class="pricing-price">$20,000</div>
+          <div class="pricing-period">One-time build fee + $4K/month</div>
+          <ul class="pricing-features">
+            <li>All 3 core builds</li>
+            <li>Multi-country (up to 3)</li>
+            <li>AI document verification</li>
+            <li>Advisory dashboard</li>
+            <li>FinReportAI IFRS integration</li>
+            <li>90-day support + training</li>
+          </ul>
+          <button type="button" class="btn btn-primary" style="width:100%;padding:12px;">Start with Free Pilot</button>
+        </div>
+
+        <div class="pricing-card">
+          <div class="pricing-tier">Enterprise</div>
+          <div class="pricing-price">$50,000</div>
+          <div class="pricing-period">One-time build fee + $8K/month</div>
+          <ul class="pricing-features">
+            <li>All 5 builds complete</li>
+            <li>All 6 countries</li>
+            <li>White label branding</li>
+            <li>Practice management system</li>
+            <li>Custom integrations</li>
+            <li>12-month dedicated support</li>
+          </ul>
+          <button type="button" class="btn btn-outline" style="width:100%;padding:12px;">Contact for Enterprise</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header"><div class="section-title">India Pricing (CA Firms)</div></div>
+        <div style="padding:24px;">
+          <div class="pricing-grid">
+            <div style="background:var(--light);border-radius:10px;padding:20px;">
+              <div style="font-weight:700;font-size:16px;margin-bottom:8px;">🇮🇳 India Starter</div>
+              <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent);">₹2.5L</div>
+              <div style="color:var(--gray);font-size:13px;margin-bottom:12px;">Build + ₹25K/month</div>
+              <div style="font-size:13px;color:var(--navy);">✓ Client Onboarding<br>✓ GST reminder bot<br>✓ WhatsApp automation</div>
+            </div>
+            <div style="background:#EFF6FF;border-radius:10px;padding:20px;border:2px solid var(--accent);">
+              <div style="font-weight:700;font-size:16px;margin-bottom:8px;">🌟 India Professional</div>
+              <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent);">₹5L</div>
+              <div style="color:var(--gray);font-size:13px;margin-bottom:12px;">Build + ₹50K/month</div>
+              <div style="font-size:13px;color:var(--navy);">✓ All 3 core builds<br>✓ IFRS + Ind AS<br>✓ FinReportAI integration</div>
+            </div>
+            <div style="background:var(--light);border-radius:10px;padding:20px;">
+              <div style="font-weight:700;font-size:16px;margin-bottom:8px;">💎 India Enterprise</div>
+              <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent);">₹12L</div>
+              <div style="color:var(--gray);font-size:13px;margin-bottom:12px;">Build + ₹1L/month</div>
+              <div style="font-size:13px;color:var(--navy);">✓ All 5 builds<br>✓ Multi-country<br>✓ White label</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-roi">
+      <div class="page-title">ROI Calculator</div>
+      <div class="page-subtitle">Calculate your firm's return on investment • Based on Sam Arami's proven framework</div>
+
+      <div class="section-card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;">
+          <div class="roi-input-section">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:20px;">Your Firm's Numbers</h3>
+
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Number of new clients per year</label>
+              <input type="number" value="80" id="roi-clients" oninput="calculateROI()" min="1">
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Staff hours per client onboarding (current)</label>
+              <input type="number" value="10" id="roi-hours" oninput="calculateROI()" min="1">
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Average staff hourly cost ($)</label>
+              <input type="number" value="55" id="roi-rate" oninput="calculateROI()" min="1">
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Average client annual value ($)</label>
+              <input type="number" value="5000" id="roi-client-value" oninput="calculateROI()" min="1">
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Client churn from poor onboarding (%)</label>
+              <input type="number" value="20" id="roi-churn" oninput="calculateROI()" min="0" max="100">
+            </div>
+          </div>
+
+          <div class="roi-result-section">
+            <div class="roi-result-title">Your ROI Analysis</div>
+
+            <div class="roi-metric">
+              <div class="roi-metric-label">Current annual onboarding cost</div>
+              <div class="roi-metric-value" id="roi-current-cost">$44,000</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">After AI (90% reduction)</div>
+              <div class="roi-metric-value green" id="roi-after-cost">$4,400</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">Labor savings per year</div>
+              <div class="roi-metric-value green" id="roi-labor-savings">$39,600</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">Revenue saved from reduced churn</div>
+              <div class="roi-metric-value green" id="roi-churn-savings">$80,000</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">Total annual benefit</div>
+              <div class="roi-metric-value" id="roi-total-benefit">$119,600</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">Build investment</div>
+              <div class="roi-metric-value" id="roi-investment">$20,000</div>
+            </div>
+            <div class="roi-metric">
+              <div class="roi-metric-label">Payback period</div>
+              <div class="roi-metric-value green" id="roi-payback">2 months</div>
+            </div>
+            <div style="margin-top:20px;background:rgba(245,158,11,0.15);padding:16px;border-radius:10px;text-align:center;">
+              <div style="font-size:13px;color:rgba(255,255,255,0.7);">First Year ROI</div>
+              <div style="font-family:'DM Serif Display',serif;font-size:48px;color:var(--gold);" id="roi-percentage">498%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-clients">
+      <div class="page-title">All Clients</div>
+      <div class="page-subtitle">24 active clients across 6 countries</div>
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Client Pipeline</div>
+          <button type="button" class="btn btn-primary" onclick="showView('intake')">+ New Client</button>
+        </div>
+        <div style="padding:20px;text-align:center;color:var(--gray);">
+          <div style="font-size:40px;margin-bottom:12px;">👥</div>
+          <p>Full client list loads from your Airtable/Supabase database.</p>
+          <p style="margin-top:8px;">Connect your database to see all 24 clients here.</p>
+          <button type="button" class="btn btn-outline" style="margin-top:16px;padding:10px 20px;">Connect Database</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="notification" id="notification">
+  <span id="notif-text">✅ Action completed</span>
+</div>
+
+<script>
+let selectedCountry = 'usa';
+let selectedEntity = '';
+let docsReceived = 0;
+let docsTotal = 0;
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const v = document.getElementById('view-' + id);
+  if (v) v.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  const side = document.querySelector('.sidebar-item[data-view="' + id + '"]');
+  if (side) side.classList.add('active');
+  closeMobileNav();
+}
+
+function switchSidebar(el, viewId) {
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  showView(viewId);
+}
+
+function selectCountry(el, country) {
+  document.querySelectorAll('.country-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedCountry = country;
+}
+
+function updateEntityType(val) {
+  selectedEntity = val;
+}
+
+function normalizeEntity(entity) {
+  const aliases = {
+    limited: 'private-limited',
+    llc: 'business',
+    's-corp': 'business',
+    'pty-ltd': 'business'
+  };
+  const k = String(entity || '').toLowerCase().replace(/\s+/g, '-');
+  return aliases[k] || entity;
+}
+
+function isMobileNavBreakpoint() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 768px)').matches;
+}
+
+function toggleMobileNav() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('nav-backdrop');
+  const btn = document.getElementById('menu-toggle');
+  if (!sidebar || !isMobileNavBreakpoint()) return;
+  const open = !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', open);
+  if (backdrop) {
+    backdrop.classList.toggle('show', open);
+    backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  if (btn) {
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+  }
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+function closeMobileNav() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('nav-backdrop');
+  const btn = document.getElementById('menu-toggle');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) {
+    backdrop.classList.remove('show');
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+  if (btn) {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', 'Open navigation menu');
+  }
+  document.body.style.overflow = '';
+}
+
+const CHECKLISTS = {
+  usa: {
+    individual: [
+      {name: 'SSN or ITIN', desc: 'Social Security / Individual Taxpayer Identification Number', priority: 'critical'},
+      {name: 'W-2 Forms', desc: 'From all employers for the tax year', priority: 'critical'},
+      {name: '1099 Forms', desc: 'Freelance, interest, dividends, miscellaneous income', priority: 'critical'},
+      {name: 'Prior Year 1040', desc: 'Last year\'s tax return for reference', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All accounts, 12 months', priority: 'important'},
+      {name: 'Form 1098', desc: 'Mortgage interest statement', priority: 'optional'},
+      {name: 'Charitable Receipts', desc: 'Donations above $250', priority: 'optional'},
+    ],
+    business: [
+      {name: 'EIN (Employer ID)', desc: 'Federal Employer Identification Number', priority: 'critical'},
+      {name: 'W-9 Form', desc: 'Request for taxpayer identification', priority: 'critical'},
+      {name: 'Prior Year Business Return', desc: '1120-S / 1065 / Schedule C', priority: 'critical'},
+      {name: 'QuickBooks / Xero Access', desc: 'Accountant access to your bookkeeping software', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'Business accounts, 12 months', priority: 'important'},
+      {name: 'Payroll Records', desc: 'W-2s issued, payroll summaries', priority: 'important'},
+      {name: 'Asset Register', desc: 'Fixed assets for depreciation', priority: 'optional'},
+    ]
+  },
+  uk: {
+    individual: [
+      {name: 'UTR Number', desc: 'Unique Taxpayer Reference from HMRC', priority: 'critical'},
+      {name: 'SA100 Self Assessment', desc: 'Last 2 years returns', priority: 'critical'},
+      {name: 'P60 / P45', desc: 'Employment income summary', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All accounts, 12 months', priority: 'important'},
+      {name: 'Dividend Vouchers', desc: 'If director of a company', priority: 'important'},
+      {name: 'SA105', desc: 'Property income details', priority: 'optional'},
+    ],
+    'private-limited': [
+      {name: 'Companies House Number', desc: 'Company registration number', priority: 'critical'},
+      {name: 'CT600 Corp Tax Return', desc: 'Previous year corporation tax', priority: 'critical'},
+      {name: 'VAT Registration / Returns', desc: 'TRN and 4 quarters of VAT returns', priority: 'critical'},
+      {name: 'Director Loan Account', desc: 'Balance and transactions', priority: 'critical'},
+      {name: 'Xero / QBO Access', desc: 'Accountant login', priority: 'important'},
+      {name: 'Payroll (RTI)', desc: 'Full payment submissions', priority: 'important'},
+      {name: 'P11D', desc: 'Benefits in kind for directors', priority: 'optional'},
+    ]
+  },
+  uae: {
+    business: [
+      {name: 'Emirates ID', desc: 'Front and back, all directors', priority: 'critical'},
+      {name: 'Trade License', desc: 'Current year, all activities listed', priority: 'critical'},
+      {name: 'TRN (Tax Reg. Number)', desc: 'VAT registration number from FTA', priority: 'critical'},
+      {name: 'VAT Returns', desc: 'Last 4 quarters of VAT returns', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All business accounts, 12 months', priority: 'important'},
+      {name: 'Memorandum of Association', desc: 'Company formation documents', priority: 'important'},
+      {name: 'CT Registration', desc: 'UAE Corporate Tax registration (June 2023+)', priority: 'important'},
+      {name: 'Audited Financials', desc: 'Previous year if available', priority: 'optional'},
+    ]
+  },
+  australia: {
+    business: [
+      {name: 'TFN (Tax File Number)', desc: 'For the business entity', priority: 'critical'},
+      {name: 'ABN', desc: 'Australian Business Number confirmation', priority: 'critical'},
+      {name: 'BAS Statements', desc: 'Last 4 quarters Business Activity Statements', priority: 'critical'},
+      {name: 'PAYG Withholding', desc: 'Payroll tax summary', priority: 'critical'},
+      {name: 'Bank Statements', desc: '12 months all accounts', priority: 'important'},
+      {name: 'Superannuation Records', desc: 'Contributions and clearing house statements', priority: 'important'},
+      {name: 'Prior Year Tax Return', desc: 'Company/trust return', priority: 'important'},
+    ]
+  },
+  india: {
+    individual: [
+      {name: 'PAN Card', desc: 'Permanent Account Number — self and spouse if applicable', priority: 'critical'},
+      {name: 'Aadhaar Card', desc: 'Linked with PAN for e-filing', priority: 'critical'},
+      {name: 'Form 16', desc: 'TDS certificate from employer', priority: 'critical'},
+      {name: 'AIS Report', desc: 'Annual Information Statement from Income Tax portal', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All accounts, 12 months', priority: 'important'},
+      {name: 'Form 26AS', desc: 'TDS reconciliation statement', priority: 'important'},
+      {name: 'Investment Proofs', desc: '80C / 80D / 80G declarations', priority: 'optional'},
+    ],
+    'private-limited': [
+      {name: 'PAN Card (Company)', desc: 'Company PAN card', priority: 'critical'},
+      {name: 'GST Returns', desc: 'GSTR-1, GSTR-3B, GSTR-2B — all months', priority: 'critical'},
+      {name: 'TDS Certificates', desc: 'All Form 16A / 16B received', priority: 'critical'},
+      {name: 'MCA Annual Return', desc: 'MGT-7 and AOC-4 filings', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All accounts, 12 months', priority: 'important'},
+      {name: 'Tally / ERP Data', desc: 'Trial balance export', priority: 'important'},
+      {name: 'Board Resolutions', desc: 'Key decisions for the year', priority: 'optional'},
+    ]
+  },
+  eu: {
+    individual: [
+      {name: 'National Tax ID (TIN)', desc: 'Tax identification for your EU member state', priority: 'critical'},
+      {name: 'Prior Year Income Tax Return', desc: 'Last filed personal income tax declaration', priority: 'critical'},
+      {name: 'Proof of Income', desc: 'Payslips, contracts, or invoices as applicable', priority: 'critical'},
+      {name: 'Bank Statements', desc: 'All accounts, 12 months', priority: 'important'},
+      {name: 'Investment / Capital Gains', desc: 'Broker or custody statements if applicable', priority: 'important'},
+      {name: 'Property / Rental Records', desc: 'If you receive rental income in the EU', priority: 'optional'},
+    ],
+    business: [
+      {name: 'EU VAT ID / National TIN', desc: 'VAT number and registration certificate', priority: 'critical'},
+      {name: 'Statutory Financial Statements', desc: 'Annual accounts (local GAAP or IFRS)', priority: 'critical'},
+      {name: 'Corporate / Trade Tax Returns', desc: 'Prior year filings for your jurisdiction', priority: 'critical'},
+      {name: 'Intrastat / EC Sales', desc: 'If you trade goods/services cross-border in the EU', priority: 'important'},
+      {name: 'Payroll & Social Security', desc: 'Monthly declarations if you have employees', priority: 'important'},
+      {name: 'GDPR / Processing Records', desc: 'Where relevant to the engagement scope', priority: 'important'},
+      {name: 'UBO / KYC Documentation', desc: 'Beneficial ownership declarations if required', priority: 'optional'},
+    ],
+    'private-limited': [
+      {name: 'Commercial Register Extract', desc: 'Current excerpt from company registry', priority: 'critical'},
+      {name: 'EU VAT ID / National TIN', desc: 'Company VAT and tax identifiers', priority: 'critical'},
+      {name: 'Statutory Financial Statements', desc: 'Annual accounts and notes', priority: 'critical'},
+      {name: 'Corporate Tax Returns', desc: 'Prior year corporate income tax filings', priority: 'critical'},
+      {name: 'Management Accounts / Trial Balance', desc: 'Current year-to-date if available', priority: 'important'},
+      {name: 'Intrastat / EC Sales', desc: 'Cross-border EU trade reporting', priority: 'important'},
+      {name: 'Shareholder / Director IDs', desc: 'KYC for key persons where required', priority: 'optional'},
+    ]
+  }
+};
+
+const WA_MESSAGES = {
+  usa: (name) => `Hi ${name}! 👋\n\nWelcome to our firm! We're thrilled to work with you.\n\nTo get started, we need a few documents:\n\n🔴 SSN/EIN (required)\n🔴 W-2/1099 forms\n🔴 Prior year tax return\n🟡 Bank statements (12 months)\n🟢 Any investment statements\n\n📤 Secure upload: [Upload Link]\n⏰ Deadline: ${getDeadline()}\n\nQuestions? Just reply here! 😊`,
+  uk: (name) => `Dear ${name},\n\nWelcome to our practice! 🎉\n\nTo begin your accounts, please share:\n\n🔴 UTR Number\n🔴 Last 2 years SA100\n🔴 P60/P45 (if employed)\n🟡 Bank statements (12 months)\n🟡 VAT returns (if registered)\n\n📤 Upload securely: [Portal Link]\n⏰ Please complete by: ${getDeadline()}\n\nAny questions, do reply! 🙏\n\n— [Firm Name] | Powered by FinReportAI`,
+  uae: (name) => `Dear ${name},\n\nAhlan! Welcome to [Firm Name]. 🌟\n\nFor your UAE accounts:\n\n🔴 Emirates ID\n🔴 Trade License\n🔴 TRN (VAT number)\n🔴 VAT returns (4 quarters)\n🟡 Bank statements (12 months)\n⚠️ UAE Corporate Tax is now active!\n\n📤 Upload link: [Secure Link]\n⏰ Deadline: ${getDeadline()}\n\n— [Firm Name] | FinReportAI`,
+  australia: (name) => `G'day ${name}! 👋\n\nWelcome to [Firm Name]!\n\nDocuments needed:\n\n🔴 TFN (Tax File Number)\n🔴 ABN confirmation\n🔴 BAS statements\n🟡 Bank statements (12 months)\n🟡 Super records\n\n📤 Upload here: [Link]\n⏰ By: ${getDeadline()}\n\nCheers! 😊\n— [Firm Name]`,
+  india: (name) => `नमस्ते ${name} जी! 🙏\n\nWelcome to [CA Firm]!\n\nDocuments needed:\n\n🔴 PAN Card\n🔴 Aadhaar Card\n🔴 Form 16 / AIS\n🟡 Bank statements (12 months)\n🟡 GST Returns (GSTR-1, 3B, 2B)\n🟢 Investment proofs (80C/80D)\n\n📤 Upload: [Secure Link]\n⏰ Deadline: ${getDeadline()}\n\nKoi sawaal ho toh WhatsApp karein! 🙏\n— [CA Firm] | FinReportAI`,
+  eu: (name) => `Hello ${name},\n\nWelcome to [Firm Name].\n\nFor EU onboarding please share:\n\n🔴 National / EU VAT tax ID\n🔴 Prior year tax returns\n🔴 Statutory or management accounts\n🟡 Bank statements (12 months)\n🟡 Intrastat / cross-border EU trade (if applicable)\n🟢 UBO / KYC (if required)\n\n📤 Secure upload: [Link]\n⏰ Deadline: ${getDeadline()}\n\n— [Firm Name] | FinReportAI`
+};
+
+function getDeadline() {
+  const d = new Date();
+  d.setDate(d.getDate() + 5);
+  return d.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+}
+
+function generateChecklist() {
+  const nameEl = document.getElementById('client-name-input');
+  const entityEl = document.getElementById('entity-select');
+  const name = (nameEl && nameEl.value) ? nameEl.value.trim() : '';
+  let entity = entityEl && entityEl.value ? entityEl.value : 'individual';
+  entity = normalizeEntity(entity);
+
+  if (!name) {
+    notify('⚠️ Please enter client name first');
+    return;
+  }
+
+  document.getElementById('checklist-client-name').textContent = name;
+  document.getElementById('checklist-country').textContent = selectedCountry.toUpperCase();
+  document.getElementById('checklist-entity').textContent = entity;
+
+  showChecklist(selectedCountry, entity, name);
+}
+
+function showChecklist(country, entity, clientName) {
+  selectedCountry = country;
+  const norm = normalizeEntity(entity);
+  selectedEntity = norm;
+
+  if (clientName) {
+    const cn = document.getElementById('checklist-client-name');
+    const cc = document.getElementById('checklist-country');
+    const ce = document.getElementById('checklist-entity');
+    if (cn) cn.textContent = clientName;
+    if (cc) cc.textContent = String(country).toUpperCase();
+    if (ce) ce.textContent = norm;
+  }
+
+  const countryData = CHECKLISTS[country] || CHECKLISTS.india;
+  const entityData = countryData[norm] || countryData[Object.keys(countryData)[0]];
+
+  const container = document.getElementById('checklist-items');
+  if (!container) return;
+
+  const critical = entityData.filter(d => d.priority === 'critical');
+  const important = entityData.filter(d => d.priority === 'important');
+  const optional = entityData.filter(d => d.priority === 'optional');
+
+  docsTotal = entityData.length;
+  docsReceived = 0;
+
+  container.innerHTML =
+    renderCategory('🔴 Critical — Required Immediately', critical, 'critical') +
+    renderCategory('🟡 Important — Required Within 3 Days', important, 'important') +
+    renderCategory('🟢 Optional — Helpful If Available', optional, 'optional');
+
+  const displayName = clientName || (document.getElementById('checklist-client-name') && document.getElementById('checklist-client-name').textContent) || 'Client';
+  const waMsg = WA_MESSAGES[country] ? WA_MESSAGES[country](displayName) : WA_MESSAGES.india(displayName);
+  const preview = document.getElementById('whatsapp-preview-text');
+  if (preview) preview.textContent = waMsg;
+
+  updateCompletion();
+  showView('checklist');
+}
+
+function renderCategory(title, docs, priority) {
+  if (!docs.length) return '';
+  return (
+    '<div class="checklist-category">' +
+    '<div class="category-title">' + title + '</div>' +
+    docs.map(function(d, i) {
+      return (
+        '<div class="checklist-item" id="item-' + priority + '-' + i + '">' +
+        '<div class="priority-dot ' + priority + '"></div>' +
+        '<span class="check-icon" onclick="toggleDoc(\'' + priority + '\', ' + i + ')">⬜</span>' +
+        '<div style="flex:1;">' +
+        '<div class="doc-name">' + d.name + '</div>' +
+        '<div class="doc-desc">' + d.desc + '</div>' +
+        '</div>' +
+        '<button type="button" class="upload-btn" onclick="simulateUpload(\'' + priority + '\', ' + i + ')">Upload</button>' +
+        '</div>'
+      );
+    }).join('') +
+    '</div>'
+  );
+}
+
+function toggleDoc(priority, idx) {
+  const item = document.getElementById('item-' + priority + '-' + idx);
+  if (!item) return;
+  const icon = item.querySelector('.check-icon');
+  if (icon.textContent === '⬜') {
+    icon.textContent = '✅';
+    docsReceived++;
+    item.style.opacity = '0.7';
+  } else {
+    icon.textContent = '⬜';
+    docsReceived = Math.max(0, docsReceived - 1);
+    item.style.opacity = '1';
+  }
+  updateCompletion();
+}
+
+function simulateUpload(priority, idx) {
+  notify('📤 Uploading document... AI verification in progress');
+  setTimeout(function() {
+    toggleDoc(priority, idx);
+    notify('✅ Document verified by AI — marked complete!');
+  }, 1500);
+}
+
+function updateCompletion() {
+  const pct = docsTotal > 0 ? Math.round((docsReceived / docsTotal) * 100) : 0;
+  const pctEl = document.getElementById('completion-pct');
+  const barEl = document.getElementById('completion-bar');
+  const recEl = document.getElementById('docs-received');
+  const penEl = document.getElementById('docs-pending');
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (barEl) {
+    barEl.style.width = pct + '%';
+    barEl.className = 'progress-fill ' + (pct >= 80 ? 'green' : pct >= 50 ? 'gold' : 'red');
+  }
+  if (recEl) recEl.textContent = docsReceived;
+  if (penEl) penEl.textContent = docsTotal - docsReceived;
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const files = Array.prototype.slice.call(e.dataTransfer.files);
+  processFiles(files);
+}
+
+function handleFileSelect(e) {
+  processFiles(Array.prototype.slice.call(e.target.files));
+  e.target.value = '';
+}
+
+function processFiles(files) {
+  const results = document.getElementById('verification-results');
+  if (!results) return;
+  results.innerHTML = '';
+
+  files.forEach(function(f) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;';
+    card.innerHTML =
+      '<div style="font-size:24px;">' + getFileIcon(f.name) + '</div>' +
+      '<div style="flex:1;">' +
+      '<div style="font-weight:600;font-size:14px;">' + f.name + '</div>' +
+      '<div style="font-size:12px;color:var(--gray);">' + (f.size / 1024).toFixed(1) + ' KB</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--accent);font-weight:600;">🤖 Verifying...</div>';
+    results.appendChild(card);
+
+    setTimeout(function() {
+      const verified = Math.random() > 0.2;
+      card.innerHTML =
+        '<div style="font-size:24px;">' + getFileIcon(f.name) + '</div>' +
+        '<div style="flex:1;">' +
+        '<div style="font-weight:600;font-size:14px;">' + f.name + '</div>' +
+        '<div style="font-size:12px;color:' + (verified ? 'var(--green)' : 'var(--red)') + ';">' +
+        (verified ? '✅ AI Verified — ' + getDocType(f.name) : '❌ Wrong document — please check') +
+        '</div>' +
+        '</div>' +
+        '<span class="badge ' + (verified ? 'badge-green' : 'badge-red') + '">' + (verified ? 'Verified' : 'Rejected') + '</span>';
+    }, 1200 + Math.random() * 800);
+  });
+
+  notify('📄 ' + files.length + ' file(s) uploaded — AI verification in progress');
+}
+
+function getFileIcon(name) {
+  if (name.endsWith('.pdf')) return '📄';
+  if (/\.(jpg|jpeg|png)$/i.test(name)) return '🖼️';
+  if (/\.(xlsx|xls)$/i.test(name)) return '📊';
+  return '📎';
+}
+
+function getDocType(name) {
+  const types = ['Bank Statement', 'Tax Return', 'Identity Document', 'Financial Statement', 'Invoice', 'Company Registration'];
+  return types[Math.floor(Math.random() * types.length)];
+}
+
+function sendWhatsApp() {
+  notify('📱 WhatsApp message sent to client!');
+}
+
+function sendReminder() {
+  notify('📱 Urgent reminder sent via WhatsApp!');
+}
+
+function sendBulkReminders() {
+  notify('📱 Sending reminders to all pending clients...');
+  setTimeout(function() { notify('✅ 12 reminder messages sent successfully!'); }, 2000);
+}
+
+function switchTab(el, id) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(function(c) { c.style.display = 'none'; });
+  const target = document.getElementById(id);
+  if (target) target.style.display = 'block';
+}
+
+function calculateROI() {
+  const clients = parseInt(document.getElementById('roi-clients') && document.getElementById('roi-clients').value, 10) || 80;
+  const hours = parseInt(document.getElementById('roi-hours') && document.getElementById('roi-hours').value, 10) || 10;
+  const rate = parseInt(document.getElementById('roi-rate') && document.getElementById('roi-rate').value, 10) || 55;
+  const clientValue = parseInt(document.getElementById('roi-client-value') && document.getElementById('roi-client-value').value, 10) || 5000;
+  const churn = parseInt(document.getElementById('roi-churn') && document.getElementById('roi-churn').value, 10) || 20;
+
+  const currentCost = clients * hours * rate;
+  const afterCost = Math.round(currentCost * 0.1);
+  const laborSavings = currentCost - afterCost;
+  const churnedClients = Math.round(clients * (churn / 100));
+  const churnSavings = Math.round(churnedClients * clientValue * 0.75);
+  const totalBenefit = laborSavings + churnSavings;
+  const investment = 20000;
+  const paybackMonths = Math.max(1, Math.round((investment / totalBenefit) * 12));
+  const roi = Math.round(((totalBenefit - investment) / investment) * 100);
+
+  function fmt(n) { return '$' + n.toLocaleString(); }
+
+  function set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+  set('roi-current-cost', fmt(currentCost));
+  set('roi-after-cost', fmt(afterCost));
+  set('roi-labor-savings', fmt(laborSavings));
+  set('roi-churn-savings', fmt(churnSavings));
+  set('roi-total-benefit', fmt(totalBenefit));
+  set('roi-investment', fmt(investment));
+  set('roi-payback', paybackMonths + ' months');
+  set('roi-percentage', roi + '%');
+}
+
+function notify(msg) {
+  const n = document.getElementById('notification');
+  const t = document.getElementById('notif-text');
+  if (!n || !t) return;
+  t.textContent = msg;
+  n.classList.add('show');
+  setTimeout(function() { n.classList.remove('show'); }, 3000);
+}
+
+window.onload = function() {
+  calculateROI();
+};
+
+window.addEventListener('resize', function() {
+  if (!isMobileNavBreakpoint()) closeMobileNav();
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeMobileNav();
+});
+</script>
+</body>
+</html>

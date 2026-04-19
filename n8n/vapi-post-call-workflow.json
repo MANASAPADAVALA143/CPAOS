@@ -1,0 +1,180 @@
+{
+  "name": "CPAOS — VAPI post-call",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cpaos-vapi-postcall",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111101",
+      "name": "VAPI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "cpaos-vapi-postcall"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const root = $input.first().json;\nconst body = root.body ?? root;\nconst call = body.message?.call ?? body.call ?? body;\nconst customer = call.customer ?? {};\nconst firm_slug =\n  body.firm_slug ??\n  call.metadata?.firm_slug ??\n  call.assistantOverrides?.metadata?.firm_slug ??\n  $env.CPAOS_DEFAULT_FIRM_SLUG ??\n  'demo-accounting';\nconst caller_email = customer.email ?? call.customer?.email ?? null;\nconst caller_phone = customer.number ?? customer.phone ?? null;\nconst msgs = Array.isArray(call.messages) ? call.messages : [];\nconst transcript = msgs\n  .map((m) => (m && (m.message || m.content)) || '')\n  .join(' ')\n  .toLowerCase();\nconst escalated =\n  /human|agent|manager|escalat|speak to someone|real person|callback/.test(transcript);\nlet outcome = 'resolved';\nlet call_type = 'document_status';\nif (!caller_email && !caller_phone) outcome = 'no_client_found';\nif (escalated) {\n  outcome = 'escalated';\n  call_type = 'escalation';\n} else if (/book|appointment|schedule|calendar/.test(transcript)) {\n  outcome = 'booked_appointment';\n  call_type = 'new_enquiry';\n} else if (/portal|upload|link|sms|text me/.test(transcript)) {\n  outcome = 'portal_link_sent';\n}\nlet duration_seconds = 0;\ntry {\n  if (call.endedAt && call.startedAt) {\n    duration_seconds = Math.max(\n      0,\n      Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000)\n    );\n  }\n} catch (e) {}\nreturn [\n  {\n    json: {\n      firm_slug,\n      caller_email,\n      caller_phone,\n      caller_name: customer.name ?? null,\n      call_type,\n      outcome,\n      duration_seconds,\n      notes: transcript.slice(0, 500),\n      escalated,\n      vapi_call_id: String(call.id || call.callId || ''),\n    },\n  },\n];"
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111102",
+      "name": "Extract call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.CPAOS_API_BASE || 'https://YOUR-BACKEND.onrender.com').replace(/\\/+$/, '') + '/api/voice/log-call' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-VAPI-Secret",
+              "value": "={{ $env.VAPI_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Extract call').first().json) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111103",
+      "name": "Log CPAOS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-esc",
+              "leftValue": "={{ $('Extract call').first().json.escalated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111104",
+      "name": "Escalated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [280, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: '🚨 VAPI escalation (n8n): ' + $('Extract call').first().json.notes }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111105",
+      "name": "Slack instant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, cpaos: $('Log CPAOS').first().json } }}",
+        "options": {}
+      },
+      "id": "a1f0c0e1-1111-4111-8111-111111111106",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [840, 300]
+    }
+  ],
+  "connections": {
+    "VAPI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract call": {
+      "main": [
+        [
+          {
+            "node": "Log CPAOS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Escalated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log CPAOS": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalated?": {
+      "main": [
+        [
+          {
+            "node": "Slack instant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false
+}
