@@ -29,7 +29,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.CPAOS_API_BASE || 'https://YOUR-BACKEND.onrender.com').replace(/\\/+$/, '') + '/api/voice/log-call' }}",
+        "url": "={{ ($env.CPAOS_API_BASE || 'https://YOUR-BACKEND.up.railway.app').replace(/\\/+$/, '') + '/api/voice/log-call' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

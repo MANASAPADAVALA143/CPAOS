@@ -1,0 +1,12 @@
+# Use when Railway Root Directory = `backend` (not the repo root).
+# If Root Directory is empty, Railway reads /railway.toml at repo root instead.
+# Env vars are set in the Railway dashboard.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
