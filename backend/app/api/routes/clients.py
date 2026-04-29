@@ -3,30 +3,26 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, EmailStr
-from sqlalchemy.orm import Session
+from supabase import Client
 
 from app.core.config import get_settings
 from app.core.security import get_current_firm_user
 from app.db import get_db
-from app.models.onboarding import (
-    ChecklistItem,
-    ChecklistItemStatus,
-    Client,
+from app.db import repo
+from app.db.urls import portal_link
+from app.models.enums import (
     ClientStatus,
     Country,
     EntityType,
-    Firm,
-    FirmUser,
     MessageChannel,
     MessageDeliveryStatus,
-    OnboardingActivity,
-    WhatsAppLog,
 )
+from app.models.staff import FirmUser
 from app.services import checklist_generator
 from app.services.completion import recompute_client_completion
 from app.services.messaging import send_message
@@ -35,7 +31,7 @@ from app.services.signature_service import send_engagement_letter
 router = APIRouter()
 
 
-def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
+def _build_cpaos_client_report_pdf(firm: dict, clients: list[dict]) -> bytes:
     from fpdf import FPDF
 
     STATUS_COLORS: dict[str, tuple[int, int, int]] = {
@@ -61,7 +57,7 @@ def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
 
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(30, 41, 59)
-    pdf.cell(0, 8, _safe(firm.name), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, _safe(firm["name"]), new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(100, 116, 139)
@@ -74,8 +70,8 @@ def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
     pdf.ln(6)
 
     n = len(clients)
-    completed = sum(1 for c in clients if c.status == ClientStatus.completed)
-    avg_pct = int(round(sum(c.completion_pct for c in clients) / n)) if n else 0
+    completed = sum(1 for c in clients if c.get("status") == ClientStatus.completed.value)
+    avg_pct = int(round(sum(int(c.get("completion_pct", 0)) for c in clients) / n)) if n else 0
 
     pdf.set_fill_color(241, 245, 249)
     pdf.set_font("Helvetica", "B", 10)
@@ -100,12 +96,16 @@ def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
         pdf.set_text_color(30, 41, 59)
         pdf.set_font("Helvetica", "", 8)
 
-        name = _safe((client.client_name or "")[:28])
-        country = _safe(client.country.value[:22])
-        entity = _safe(client.entity_type.value.replace("_", " ").title()[:18])
-        status_key = client.status.value
+        name = _safe((client.get("client_name") or "")[:28])
+        country = _safe(str(client.get("country", ""))[:22])
+        et = str(client.get("entity_type", "")).replace("_", " ").title()[:18]
+        entity = _safe(et)
+        status_key = str(client.get("status", ""))
         status_label = _safe(status_key.replace("_", " ").title()[:16])
-        created = client.created_at.strftime("%Y-%m-%d") if client.created_at else ""
+        created_raw = client.get("created_at")
+        created = ""
+        if created_raw:
+            created = str(created_raw)[:10]
 
         pdf.cell(55, 7, name, fill=zebra)
         pdf.cell(25, 7, country, fill=zebra)
@@ -118,7 +118,7 @@ def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
 
         pdf.set_text_color(30, 41, 59)
         pdf.set_font("Helvetica", "", 8)
-        pdf.cell(25, 7, f"{client.completion_pct}%", align="R", fill=zebra)
+        pdf.cell(25, 7, f"{client.get('completion_pct', 0)}%", align="R", fill=zebra)
         pdf.cell(25, 7, _safe(created), fill=zebra, new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(10)
@@ -134,11 +134,6 @@ def _build_cpaos_client_report_pdf(firm: Firm, clients: list[Client]) -> bytes:
     if isinstance(out, str):
         return out.encode("latin-1")
     return bytes(out)
-
-
-def _portal_url(firm: Firm, client: Client) -> str:
-    base = get_settings().frontend_url.rstrip("/")
-    return f"{base}/portal/{firm.slug}/{client.onboarding_token}"
 
 
 class CreateClientBody(BaseModel):
@@ -162,10 +157,9 @@ class PatchClientBody(BaseModel):
 
 def _ensure_entity(country: str, raw: str) -> EntityType:
     try:
-        et = EntityType(raw)
+        return EntityType(raw)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid entity_type") from e
-    return et
 
 
 def _ensure_country(raw: str) -> Country:
@@ -179,102 +173,112 @@ def _ensure_country(raw: str) -> Country:
 def create_client(
     body: CreateClientBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
     country = _ensure_country(body.country)
     entity = _ensure_entity(body.country, body.entity_type)
-
-    client = Client(
-        firm_id=current.firm_id,
-        client_name=body.client_name,
-        business_name=body.business_name,
-        email=str(body.email),
-        phone=body.phone,
-        country=country,
-        entity_type=entity,
-        services=body.services,
-        industry=body.industry,
-        financial_year_end=body.financial_year_end,
-        assigned_to=body.assigned_to,
-        onboarding_link="",
-        status=ClientStatus.invited,
+    tok = uuid.uuid4()
+    link = portal_link(get_settings().frontend_url, firm["slug"], tok)
+    assigned = str(body.assigned_to) if body.assigned_to else None
+    ins = (
+        sb.table("clients")
+        .insert(
+            {
+                "firm_id": str(current.firm_id),
+                "client_name": body.client_name,
+                "business_name": body.business_name,
+                "email": str(body.email).lower(),
+                "phone": body.phone,
+                "country": country.value,
+                "entity_type": entity.value,
+                "services": body.services,
+                "industry": body.industry,
+                "financial_year_end": body.financial_year_end,
+                "assigned_to": assigned,
+                "onboarding_link": link,
+                "onboarding_token": str(tok),
+                "status": ClientStatus.invited.value,
+            }
+        )
+        .execute()
     )
-    db.add(client)
-    db.flush()
-    client.onboarding_link = _portal_url(firm, client)
+    if not ins.data:
+        raise HTTPException(status_code=500, detail="Failed to create client")
+    client = ins.data[0]
+    cid = uuid.UUID(str(client["id"]))
 
     specs = checklist_generator.generate_checklist(country.value, entity.value, body.services)
-    for spec in specs:
-        db.add(
-            ChecklistItem(
-                client_id=client.id,
-                category=spec["category"],
-                item_name=spec["item_name"],
-                description=spec["description"],
-                is_required=spec["is_required"],
-                display_order=spec["display_order"],
-            )
-        )
-    recompute_client_completion(db, client)
-    db.add(
-        OnboardingActivity(
-            client_id=client.id,
-            firm_id=current.firm_id,
-            action="client_created",
-            description="Client record created",
-            performed_by=str(current.id),
-        )
+    rows = [
+        {
+            "client_id": str(cid),
+            "category": spec["category"],
+            "item_name": spec["item_name"],
+            "description": spec["description"],
+            "is_required": spec["is_required"],
+            "display_order": spec["display_order"],
+        }
+        for spec in specs
+    ]
+    if rows:
+        sb.table("checklist_items").insert(rows).execute()
+    recompute_client_completion(sb, cid)
+    repo.insert_activity(
+        sb,
+        client_id=cid,
+        firm_id=current.firm_id,
+        action="client_created",
+        description="Client record created",
+        performed_by=str(current.id),
     )
-    db.commit()
-    db.refresh(client)
+    client = repo.client_by_id(sb, cid, current.firm_id) or client
 
     doc_count = len(specs)
     deadline = "TBD"
     variables = {
-        "client_name": client.client_name,
-        "firm_name": firm.name,
-        "portal_link": client.onboarding_link,
+        "client_name": client["client_name"],
+        "firm_name": firm["name"],
+        "portal_link": client["onboarding_link"],
         "doc_count": str(doc_count),
         "deadline": deadline,
-        "completion_pct": str(client.completion_pct),
+        "completion_pct": str(client.get("completion_pct", 0)),
         "pending_items": "See portal",
     }
 
     if body.send_engagement_letter:
-        send_engagement_letter(client, firm, db)
-        db.refresh(client)
+        send_engagement_letter(client, firm, sb)
+        client = repo.client_by_id(sb, cid, current.firm_id) or client
     else:
-        send_message(client.phone, "welcome", variables)
-        log = WhatsAppLog(
-            client_id=client.id,
+        send_message(client["phone"], "welcome", variables)
+        repo.insert_whatsapp_log(
+            sb,
+            client_id=cid,
             firm_id=current.firm_id,
-            channel=MessageChannel.whatsapp,
+            channel=MessageChannel.whatsapp.value,
             message_type="welcome",
-            phone_number=client.phone,
+            phone_number=client["phone"],
             message_content="welcome",
-            status=MessageDeliveryStatus.sent,
+            status=MessageDeliveryStatus.sent.value,
         )
-        db.add(log)
-        db.add(
-            OnboardingActivity(
-                client_id=client.id,
-                firm_id=current.firm_id,
-                action="portal_sent",
-                description="Welcome message sent",
-                performed_by="system",
-            )
+        repo.insert_activity(
+            sb,
+            client_id=cid,
+            firm_id=current.firm_id,
+            action="portal_sent",
+            description="Welcome message sent",
+            performed_by="system",
         )
-        db.commit()
-        db.refresh(client)
+        client = repo.client_by_id(sb, cid, current.firm_id) or client
 
     return {
-        "id": str(client.id),
-        "client_name": client.client_name,
-        "status": client.status.value,
-        "completion_pct": client.completion_pct,
-        "portal_link": client.onboarding_link,
-        "onboarding_token": str(client.onboarding_token),
+        "id": str(client["id"]),
+        "client_name": client["client_name"],
+        "status": client["status"],
+        "completion_pct": client.get("completion_pct", 0),
+        "portal_link": client["onboarding_link"],
+        "onboarding_token": str(client["onboarding_token"]),
     }
 
 
@@ -285,32 +289,31 @@ def list_clients(
     search: str | None = None,
     assigned_to: uuid.UUID | None = None,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    q = db.query(Client).filter(Client.firm_id == current.firm_id)
-    if status:
-        q = q.filter(Client.status == ClientStatus(status))
-    if country:
-        q = q.filter(Client.country == Country(country))
-    if search:
-        like = f"%{search}%"
-        q = q.filter(Client.client_name.ilike(like))
-    if assigned_to:
-        q = q.filter(Client.assigned_to == assigned_to)
-    rows = q.order_by(Client.created_at.desc()).all()
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    rows = repo.list_clients_filtered(
+        sb,
+        current.firm_id,
+        status=status,
+        country=country,
+        search=search,
+        assigned_to=assigned_to,
+    )
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
     return [
         {
-            "id": str(c.id),
-            "client_name": c.client_name,
-            "business_name": c.business_name,
-            "country": c.country.value,
-            "entity_type": c.entity_type.value,
-            "status": c.status.value,
-            "completion_pct": c.completion_pct,
-            "portal_link": _portal_url(firm, c),
-            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "id": str(c["id"]),
+            "client_name": c["client_name"],
+            "business_name": c.get("business_name"),
+            "country": c["country"],
+            "entity_type": c["entity_type"],
+            "status": c["status"],
+            "completion_pct": c.get("completion_pct", 0),
+            "portal_link": portal_link(get_settings().frontend_url, firm["slug"], c["onboarding_token"]),
+            "assigned_to": str(c["assigned_to"]) if c.get("assigned_to") else None,
+            "created_at": c.get("created_at"),
         }
         for c in rows
     ]
@@ -320,27 +323,27 @@ def list_clients(
 def get_client(
     client_id: uuid.UUID,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    firm = repo.firm_by_id(sb, current.firm_id)
     return {
-        "id": str(c.id),
-        "client_name": c.client_name,
-        "business_name": c.business_name,
-        "email": c.email,
-        "phone": c.phone,
-        "country": c.country.value,
-        "entity_type": c.entity_type.value,
-        "services": c.services,
-        "status": c.status.value,
-        "completion_pct": c.completion_pct,
-        "portal_link": _portal_url(firm, c),
-        "engagement_letter_sent": c.engagement_letter_sent,
-        "engagement_letter_signed": c.engagement_letter_signed,
-        "signature_envelope_id": c.signature_envelope_id,
+        "id": str(c["id"]),
+        "client_name": c["client_name"],
+        "business_name": c.get("business_name"),
+        "email": c["email"],
+        "phone": c["phone"],
+        "country": c["country"],
+        "entity_type": c["entity_type"],
+        "services": c.get("services") or [],
+        "status": c["status"],
+        "completion_pct": c.get("completion_pct", 0),
+        "portal_link": portal_link(get_settings().frontend_url, firm["slug"], c["onboarding_token"]) if firm else "",
+        "engagement_letter_sent": c.get("engagement_letter_sent", False),
+        "engagement_letter_signed": c.get("engagement_letter_signed", False),
+        "signature_envelope_id": c.get("signature_envelope_id"),
     }
 
 
@@ -348,22 +351,23 @@ def get_client(
 def get_checklist(
     client_id: uuid.UUID,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    items = db.query(ChecklistItem).filter(ChecklistItem.client_id == c.id).order_by(ChecklistItem.display_order).all()
+    cid = uuid.UUID(str(c["id"]))
+    items = repo.checklist_items_for_client(sb, cid)
     return [
         {
-            "id": str(i.id),
-            "category": i.category,
-            "item_name": i.item_name,
-            "description": i.description,
-            "is_required": i.is_required,
-            "status": i.status.value,
-            "document_id": str(i.document_id) if i.document_id else None,
-            "display_order": i.display_order,
+            "id": str(i["id"]),
+            "category": i["category"],
+            "item_name": i["item_name"],
+            "description": i.get("description", ""),
+            "is_required": i.get("is_required", True),
+            "status": i["status"],
+            "document_id": str(i["document_id"]) if i.get("document_id") else None,
+            "display_order": i.get("display_order", 0),
         }
         for i in items
     ]
@@ -374,18 +378,17 @@ def patch_client(
     client_id: uuid.UUID,
     body: PatchClientBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
+    patch: dict = {"last_activity_at": datetime.now(timezone.utc).isoformat()}
     if body.status is not None:
-        c.status = ClientStatus(body.status)
+        patch["status"] = body.status
     if body.assigned_to is not None:
-        c.assigned_to = body.assigned_to
-    c.last_activity_at = datetime.utcnow()
-    db.add(c)
-    db.commit()
+        patch["assigned_to"] = str(body.assigned_to)
+    repo.update_client(sb, client_id, patch)
     return {"ok": True}
 
 
@@ -398,42 +401,40 @@ def send_reminder(
     client_id: uuid.UUID,
     body: ReminderBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
-    pending = (
-        db.query(ChecklistItem)
-        .filter(ChecklistItem.client_id == c.id, ChecklistItem.status == ChecklistItemStatus.pending)
-        .all()
-    )
-    pending_items = "\n".join(f"- {p.item_name}" for p in pending[:10]) or "- None"
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Not found")
+    cid = uuid.UUID(str(c["id"]))
+    pending = repo.checklist_pending_for_client(sb, cid)
+    pending_items = "\n".join(f"- {p['item_name']}" for p in pending[:10]) or "- None"
     variables = {
-        "client_name": c.client_name,
-        "firm_name": firm.name,
-        "portal_link": _portal_url(firm, c),
+        "client_name": c["client_name"],
+        "firm_name": firm["name"],
+        "portal_link": portal_link(get_settings().frontend_url, firm["slug"], c["onboarding_token"]),
         "doc_count": str(len(pending)),
         "deadline": "Soon",
-        "completion_pct": str(c.completion_pct),
+        "completion_pct": str(c.get("completion_pct", 0)),
         "pending_items": pending_items,
     }
-    result = send_message(c.phone, body.template, variables)
-    ch = MessageChannel.whatsapp
+    result = send_message(c["phone"], body.template, variables)
+    ch = MessageChannel.whatsapp.value
     if result.get("channel") == "sms":
-        ch = MessageChannel.sms
-    log = WhatsAppLog(
-        client_id=c.id,
+        ch = MessageChannel.sms.value
+    repo.insert_whatsapp_log(
+        sb,
+        client_id=cid,
         firm_id=current.firm_id,
         channel=ch,
         message_type=body.template,
-        phone_number=c.phone,
+        phone_number=c["phone"],
         message_content=body.template,
-        status=MessageDeliveryStatus.sent if result.get("status") == "sent" else MessageDeliveryStatus.failed,
+        status=MessageDeliveryStatus.sent.value if result.get("status") == "sent" else MessageDeliveryStatus.failed.value,
     )
-    db.add(log)
-    db.commit()
     return result
 
 
@@ -441,26 +442,22 @@ def send_reminder(
 def client_messages(
     client_id: uuid.UUID,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    logs = (
-        db.query(WhatsAppLog)
-        .filter(WhatsAppLog.client_id == c.id)
-        .order_by(WhatsAppLog.sent_at.desc())
-        .all()
-    )
+    cid = uuid.UUID(str(c["id"]))
+    logs = repo.whatsapp_logs_for_client(sb, cid)
     return [
         {
-            "id": str(l.id),
-            "channel": l.channel.value,
-            "message_type": l.message_type,
-            "phone_number": l.phone_number,
-            "message_content": l.message_content,
-            "status": l.status.value,
-            "sent_at": l.sent_at.isoformat(),
+            "id": str(l["id"]),
+            "channel": l["channel"],
+            "message_type": l["message_type"],
+            "phone_number": l["phone_number"],
+            "message_content": l["message_content"],
+            "status": l["status"],
+            "sent_at": l.get("sent_at"),
         }
         for l in logs
     ]
@@ -470,24 +467,27 @@ def client_messages(
 def client_activity(
     client_id: uuid.UUID,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    rows = (
-        db.query(OnboardingActivity)
-        .filter(OnboardingActivity.client_id == c.id)
-        .order_by(OnboardingActivity.created_at.desc())
-        .all()
+    cid = uuid.UUID(str(c["id"]))
+    r = (
+        sb.table("onboarding_activity")
+        .select("*")
+        .eq("client_id", str(cid))
+        .order("created_at", desc=True)
+        .execute()
     )
+    rows = r.data or []
     return [
         {
-            "id": str(a.id),
-            "action": a.action,
-            "description": a.description,
-            "performed_by": a.performed_by,
-            "created_at": a.created_at.isoformat(),
+            "id": str(a["id"]),
+            "action": a["action"],
+            "description": a["description"],
+            "performed_by": a["performed_by"],
+            "created_at": a.get("created_at"),
         }
         for a in rows
     ]
@@ -497,13 +497,15 @@ def client_activity(
 def resend_engagement(
     client_id: uuid.UUID,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    c = db.query(Client).filter(Client.id == client_id, Client.firm_id == current.firm_id).first()
+    c = repo.client_by_id(sb, client_id, current.firm_id)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
-    return send_engagement_letter(c, firm, db)
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Not found")
+    return send_engagement_letter(c, firm, sb)
 
 
 class BulkRemindBody(BaseModel):
@@ -514,50 +516,47 @@ class BulkRemindBody(BaseModel):
 def bulk_remind(
     body: BulkRemindBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Not found")
     sent = 0
     failed = 0
     for cid in body.client_ids:
-        c = db.query(Client).filter(Client.id == cid, Client.firm_id == current.firm_id).first()
+        c = repo.client_by_id(sb, cid, current.firm_id)
         if not c:
             failed += 1
             continue
-        pending = (
-            db.query(ChecklistItem)
-            .filter(ChecklistItem.client_id == c.id, ChecklistItem.status == ChecklistItemStatus.pending)
-            .all()
-        )
-        pending_items = "\n".join(f"- {p.item_name}" for p in pending[:10]) or "- None"
+        pending = repo.checklist_pending_for_client(sb, cid)
+        pending_items = "\n".join(f"- {p['item_name']}" for p in pending[:10]) or "- None"
         variables = {
-            "client_name": c.client_name,
-            "firm_name": firm.name,
-            "portal_link": _portal_url(firm, c),
+            "client_name": c["client_name"],
+            "firm_name": firm["name"],
+            "portal_link": portal_link(get_settings().frontend_url, firm["slug"], c["onboarding_token"]),
             "doc_count": str(len(pending)),
             "deadline": "Soon",
-            "completion_pct": str(c.completion_pct),
+            "completion_pct": str(c.get("completion_pct", 0)),
             "pending_items": pending_items,
         }
-        result = send_message(c.phone, "reminder_day2", variables)
-        ch = MessageChannel.whatsapp
+        result = send_message(c["phone"], "reminder_day2", variables)
+        ch = MessageChannel.whatsapp.value
         if result.get("channel") == "sms":
-            ch = MessageChannel.sms
-        log = WhatsAppLog(
-            client_id=c.id,
+            ch = MessageChannel.sms.value
+        repo.insert_whatsapp_log(
+            sb,
+            client_id=cid,
             firm_id=current.firm_id,
             channel=ch,
             message_type="bulk_reminder",
-            phone_number=c.phone,
+            phone_number=c["phone"],
             message_content="reminder_day2",
-            status=MessageDeliveryStatus.sent if result.get("status") == "sent" else MessageDeliveryStatus.failed,
+            status=MessageDeliveryStatus.sent.value if result.get("status") == "sent" else MessageDeliveryStatus.failed.value,
         )
-        db.add(log)
         if result.get("status") == "sent":
             sent += 1
         else:
             failed += 1
-    db.commit()
     return {"sent": sent, "failed": failed}
 
 
@@ -565,32 +564,32 @@ def bulk_remind(
 def export_clients_csv(
     ids: str | None = None,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    q = db.query(Client).filter(Client.firm_id == current.firm_id)
     if ids:
         id_list = [uuid.UUID(x.strip()) for x in ids.split(",") if x.strip()]
-        if id_list:
-            q = q.filter(Client.id.in_(id_list))
-    rows = q.order_by(Client.created_at.desc()).all()
-    assignees = {u.id: u.full_name for u in db.query(FirmUser).filter(FirmUser.firm_id == current.firm_id).all()}
+        rows = repo.clients_in_ids(sb, current.firm_id, id_list) if id_list else []
+    else:
+        rows = repo.list_clients_filtered(sb, current.firm_id)
+    assignees = {uuid.UUID(str(u["id"])): u["full_name"] for u in repo.firm_users_for_firm(sb, current.firm_id)}
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(
         ["Client Name", "Business", "Country", "Entity", "Status", "Completion %", "Assigned To", "Created At"]
     )
     for c in rows:
-        an = assignees.get(c.assigned_to, "") if c.assigned_to else ""
+        aid = c.get("assigned_to")
+        an = assignees.get(uuid.UUID(str(aid)), "") if aid else ""
         w.writerow(
             [
-                c.client_name,
-                c.business_name or "",
-                c.country.value,
-                c.entity_type.value,
-                c.status.value,
-                c.completion_pct,
+                c["client_name"],
+                c.get("business_name") or "",
+                c["country"],
+                c["entity_type"],
+                c["status"],
+                c.get("completion_pct", 0),
                 an,
-                c.created_at.isoformat() if c.created_at else "",
+                str(c.get("created_at") or ""),
             ]
         )
     buf.seek(0)
@@ -610,19 +609,15 @@ class GenerateReportBody(BaseModel):
 def generate_client_report(
     body: GenerateReportBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
     if not body.client_ids:
         raise HTTPException(status_code=400, detail="No client_ids provided")
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    firm = repo.firm_by_id(sb, current.firm_id)
     if not firm:
         raise HTTPException(status_code=404, detail="Firm not found")
-    rows = (
-        db.query(Client)
-        .filter(Client.firm_id == current.firm_id, Client.id.in_(body.client_ids))
-        .order_by(Client.created_at.desc())
-        .all()
-    )
+    rows = repo.clients_in_ids(sb, current.firm_id, body.client_ids)
+    rows.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
     if not rows:
         raise HTTPException(status_code=400, detail="No matching clients for this firm")
     pdf_bytes = _build_cpaos_client_report_pdf(firm, rows)

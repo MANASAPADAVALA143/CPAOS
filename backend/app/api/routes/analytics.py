@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 import calendar
+import uuid
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from supabase import Client
 
 from app.core.security import get_current_firm_user
 from app.db import get_db
-from app.models.onboarding import (
-    Client,
-    ClientStatus,
-    Document,
-    DocumentReviewStatus,
-    FirmUser,
-    OnboardingActivity,
-)
+from app.db import repo
+from app.db.dates import parse_dt
+from app.models.enums import ClientStatus
+from app.models.staff import FirmUser
 
 router = APIRouter()
 
@@ -37,70 +33,78 @@ def _shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
 @router.get("/analytics/dashboard")
 def dashboard_analytics(
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
     firm_id = current.firm_id
-    clients = db.query(Client).filter(Client.firm_id == firm_id).all()
+    clients = repo.all_clients_firm(sb, firm_id)
     total = len(clients)
-    active_clients = sum(1 for c in clients if c.status not in (ClientStatus.completed, ClientStatus.active))
-
-    now = datetime.utcnow()
-    month_start = datetime(now.year, now.month, 1)
-    completed_this_month = sum(
-        1
-        for c in clients
-        if c.status == ClientStatus.completed and c.completed_at and c.completed_at >= month_start
+    active_clients = sum(
+        1 for c in clients if c.get("status") not in (ClientStatus.completed.value, ClientStatus.active.value)
     )
 
-    completed_rows = [c for c in clients if c.status == ClientStatus.completed and c.completed_at and c.created_at]
-    deltas = [(c.completed_at - c.created_at).total_seconds() / 86400 for c in completed_rows if c.completed_at]
+    now = datetime.now(timezone.utc)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    completed_this_month = 0
+    for c in clients:
+        if c.get("status") != ClientStatus.completed.value:
+            continue
+        ca = parse_dt(c.get("completed_at"))
+        if ca and ca >= month_start:
+            completed_this_month += 1
+
+    deltas = []
+    for c in clients:
+        if c.get("status") != ClientStatus.completed.value:
+            continue
+        ca = parse_dt(c.get("completed_at"))
+        cr = parse_dt(c.get("created_at"))
+        if ca and cr:
+            deltas.append((ca - cr).total_seconds() / 86400)
     avg_completion_days = round(sum(deltas) / len(deltas), 1) if deltas else 0.0
 
-    docs_pending_review = (
-        db.query(func.count(Document.id))
-        .filter(Document.firm_id == firm_id, Document.review_status == DocumentReviewStatus.pending)
-        .scalar()
-        or 0
-    )
+    docs_pending_review = repo.count_documents_pending_firm(sb, firm_id)
 
-    signature_pending = sum(1 for c in clients if c.status == ClientStatus.signature_pending)
+    signature_pending = sum(1 for c in clients if c.get("status") == ClientStatus.signature_pending.value)
 
-    completed_total = sum(1 for c in clients if c.status == ClientStatus.completed)
+    completed_total = sum(1 for c in clients if c.get("status") == ClientStatus.completed.value)
     completion_rate_pct = int(round(100 * completed_total / total)) if total else 0
 
     by_country: dict[str, int] = defaultdict(int)
     for c in clients:
-        by_country[c.country.value] += 1
+        by_country[str(c.get("country", ""))] += 1
 
     by_status: dict[str, int] = defaultdict(int)
     for c in clients:
-        by_status[c.status.value] += 1
+        by_status[str(c.get("status", ""))] += 1
 
-    recent = (
-        db.query(OnboardingActivity, Client)
-        .join(Client, Client.id == OnboardingActivity.client_id)
-        .filter(OnboardingActivity.firm_id == firm_id)
-        .order_by(OnboardingActivity.created_at.desc())
-        .limit(20)
-        .all()
-    )
-    recent_activity = [
-        {
-            "client_name": cl.client_name if cl else "Client",
-            "action": act.action,
-            "description": act.description,
-            "performed_by": act.performed_by,
-            "created_at": act.created_at.isoformat() + "Z",
-        }
-        for act, cl in recent
-    ]
+    recent_rows = repo.list_onboarding_activity(sb, firm_id, limit=20)
+    client_ids = list({uuid.UUID(str(r["client_id"])) for r in recent_rows})
+    cmap: dict[str, dict] = {}
+    for cid in client_ids:
+        cl = repo.client_by_id(sb, cid, firm_id)
+        if cl:
+            cmap[str(cid)] = cl
+    recent_activity = []
+    for act in recent_rows:
+        cl = cmap.get(str(act["client_id"]), {})
+        recent_activity.append(
+            {
+                "client_name": cl.get("client_name", "Client"),
+                "action": act["action"],
+                "description": act["description"],
+                "performed_by": act["performed_by"],
+                "created_at": str(act.get("created_at", "")) + ("Z" if act.get("created_at") and "Z" not in str(act.get("created_at")) else ""),
+            }
+        )
 
     trend: dict[str, int] = defaultdict(int)
     for c in clients:
-        if c.status != ClientStatus.completed or not c.completed_at:
+        if c.get("status") != ClientStatus.completed.value:
             continue
-        cm = datetime(c.completed_at.year, c.completed_at.month, 1)
-        key = f"{cm.year}-{cm.month:02d}"
+        ca = parse_dt(c.get("completed_at"))
+        if not ca:
+            continue
+        key = f"{ca.year}-{ca.month:02d}"
         trend[key] += 1
 
     months_out = []

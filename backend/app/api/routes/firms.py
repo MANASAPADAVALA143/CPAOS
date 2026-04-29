@@ -4,11 +4,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, EmailStr
-from sqlalchemy.orm import Session
+from supabase import Client
 
 from app.core.security import get_current_firm_user, get_supabase_admin
 from app.db import get_db
-from app.models.onboarding import Firm, FirmUser, FirmUserRole
+from app.db import repo
+from app.models.enums import FirmUserRole
+from app.models.staff import FirmUser
 from app.services import storage_service
 
 router = APIRouter()
@@ -33,18 +35,20 @@ class UserPatch(BaseModel):
 
 
 @router.get("/firm")
-def get_firm(current: FirmUser = Depends(get_current_firm_user), db: Session = Depends(get_db)):
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+def get_firm(current: FirmUser = Depends(get_current_firm_user), sb: Client = Depends(get_db)):
+    firm = repo.firm_by_id(sb, current.firm_id)
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
     return {
-        "id": str(firm.id),
-        "name": firm.name,
-        "slug": firm.slug,
-        "country": firm.country,
-        "logo_url": firm.logo_url,
-        "primary_color": firm.primary_color,
-        "whatsapp_number": firm.whatsapp_number,
-        "plan": firm.plan.value,
-        "plan_client_limit": firm.plan_client_limit,
+        "id": str(firm["id"]),
+        "name": firm["name"],
+        "slug": firm["slug"],
+        "country": firm["country"],
+        "logo_url": firm.get("logo_url"),
+        "primary_color": firm["primary_color"],
+        "whatsapp_number": firm.get("whatsapp_number"),
+        "plan": firm["plan"],
+        "plan_client_limit": firm["plan_client_limit"],
     }
 
 
@@ -52,26 +56,26 @@ def get_firm(current: FirmUser = Depends(get_current_firm_user), db: Session = D
 def patch_firm(
     body: FirmPatch,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
+    patch: dict = {}
     if body.name is not None:
-        firm.name = body.name
+        patch["name"] = body.name
     if body.whatsapp_number is not None:
-        firm.whatsapp_number = body.whatsapp_number
+        patch["whatsapp_number"] = body.whatsapp_number
     if body.primary_color is not None:
-        firm.primary_color = body.primary_color
-    db.add(firm)
-    db.commit()
-    db.refresh(firm)
-    return {"ok": True, "firm": {"id": str(firm.id), "name": firm.name}}
+        patch["primary_color"] = body.primary_color
+    if patch:
+        repo.update_firm(sb, current.firm_id, patch)
+    firm = repo.firm_by_id(sb, current.firm_id)
+    return {"ok": True, "firm": {"id": str(firm["id"]), "name": firm["name"]} if firm else {}}
 
 
 @router.post("/firm/logo")
 async def upload_logo(
     file: UploadFile = File(...),
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
     data = await file.read()
     mime = file.content_type or "image/png"
@@ -79,23 +83,20 @@ async def upload_logo(
         url = storage_service.upload_logo(data, str(current.firm_id), mime)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
-    firm = db.query(Firm).filter(Firm.id == current.firm_id).first()
-    firm.logo_url = url
-    db.add(firm)
-    db.commit()
+    repo.update_firm(sb, current.firm_id, {"logo_url": url})
     return {"logo_url": url}
 
 
 @router.get("/firm/users")
-def list_users(current: FirmUser = Depends(get_current_firm_user), db: Session = Depends(get_db)):
-    users = db.query(FirmUser).filter(FirmUser.firm_id == current.firm_id).all()
+def list_users(current: FirmUser = Depends(get_current_firm_user), sb: Client = Depends(get_db)):
+    users = repo.firm_users_for_firm(sb, current.firm_id)
     return [
         {
-            "id": str(u.id),
-            "email": u.email,
-            "full_name": u.full_name,
-            "role": u.role.value,
-            "is_active": u.is_active,
+            "id": str(u["id"]),
+            "email": u["email"],
+            "full_name": u["full_name"],
+            "role": u["role"],
+            "is_active": u.get("is_active", True),
         }
         for u in users
     ]
@@ -105,7 +106,7 @@ def list_users(current: FirmUser = Depends(get_current_firm_user), db: Session =
 def invite_user(
     body: InviteUserBody,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
     if current.role not in (FirmUserRole.owner, FirmUserRole.admin):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -117,19 +118,26 @@ def invite_user(
         uid = created.user.id
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    role = FirmUserRole.staff
+    role = FirmUserRole.staff.value
     if body.role == "admin" and current.role == FirmUserRole.owner:
-        role = FirmUserRole.admin
-    u = FirmUser(
-        firm_id=current.firm_id,
-        supabase_user_id=str(uid),
-        email=str(body.email),
-        full_name=body.full_name,
-        role=role,
+        role = FirmUserRole.admin.value
+    u_r = (
+        sb.table("firm_users")
+        .insert(
+            {
+                "firm_id": str(current.firm_id),
+                "supabase_user_id": str(uid),
+                "email": str(body.email),
+                "full_name": body.full_name,
+                "role": role,
+            }
+        )
+        .execute()
     )
-    db.add(u)
-    db.commit()
-    return {"id": str(u.id), "email": u.email}
+    if not u_r.data:
+        raise HTTPException(status_code=500, detail="Failed to invite user")
+    u = u_r.data[0]
+    return {"id": str(u["id"]), "email": u["email"]}
 
 
 @router.patch("/firm/users/{user_id}")
@@ -137,20 +145,22 @@ def patch_user(
     user_id: uuid.UUID,
     body: UserPatch,
     current: FirmUser = Depends(get_current_firm_user),
-    db: Session = Depends(get_db),
+    sb: Client = Depends(get_db),
 ):
     if current.role not in (FirmUserRole.owner, FirmUserRole.admin):
         raise HTTPException(status_code=403, detail="Not allowed")
-    u = db.query(FirmUser).filter(FirmUser.id == user_id, FirmUser.firm_id == current.firm_id).first()
-    if not u:
+    u = sb.table("firm_users").select("*").eq("id", str(user_id)).eq("firm_id", str(current.firm_id)).limit(1).execute()
+    if not u.data:
         raise HTTPException(status_code=404, detail="User not found")
+    patch: dict = {}
     if body.role is not None:
         try:
-            u.role = FirmUserRole(body.role)
+            FirmUserRole(body.role)
         except ValueError as e:
             raise HTTPException(status_code=400, detail="Invalid role") from e
+        patch["role"] = body.role
     if body.is_active is not None:
-        u.is_active = body.is_active
-    db.add(u)
-    db.commit()
+        patch["is_active"] = body.is_active
+    if patch:
+        repo.update_firm_user(sb, user_id, patch)
     return {"ok": True}

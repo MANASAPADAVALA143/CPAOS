@@ -1,32 +1,33 @@
+from __future__ import annotations
+
 import os
+from typing import Iterator
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+from fastapi import HTTPException
+from supabase import Client, create_client
 
-from app.db.base import Base
+load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if DATABASE_URL and "supabase" in DATABASE_URL and "sslmode" not in DATABASE_URL:
-    sep = "&" if "?" in DATABASE_URL else "?"
-    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
-
-engine = create_engine(DATABASE_URL or "sqlite:///./cpaos_dev.db")
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_supabase: Client | None = None
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_supabase() -> Client:
+    global _supabase
+    url = os.getenv("SUPABASE_URL", "").strip()
+    key = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+    if not url or not key:
+        raise HTTPException(status_code=503, detail="Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_KEY)")
+    if _supabase is None:
+        _supabase = create_client(url, key)
+    return _supabase
+
+
+def get_db() -> Iterator[Client]:
+    """FastAPI dependency — yields Supabase client (same as get_supabase)."""
+    yield get_supabase()
 
 
 def init_db() -> None:
-    """Optional dev bootstrap; production uses Alembic migrations."""
-    # Import models so metadata is populated
-    from app.models import onboarding  # noqa: F401
-
-    if os.getenv("CPAOS_AUTO_CREATE_TABLES") == "1":
-        Base.metadata.create_all(bind=engine)
+    """Schema is applied via Supabase SQL Editor (supabase_schema.sql); no local DDL."""
+    return None

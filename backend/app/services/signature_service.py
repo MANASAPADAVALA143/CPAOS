@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import base64
 import time
+import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import Any
 
 import requests
 from jose import jwt
+from supabase import Client
 
 from app.core.config import get_settings
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
-    from app.models.onboarding import Client, Firm
+from app.db import repo
+from app.models.enums import ClientStatus
 
 
-def generate_engagement_letter_pdf(client: "Client", firm: "Firm") -> bytes:
+def generate_engagement_letter_pdf(client: dict[str, Any], firm: dict[str, Any]) -> bytes:
     from fpdf import FPDF
 
     pdf = FPDF()
@@ -29,20 +28,21 @@ def generate_engagement_letter_pdf(client: "Client", firm: "Firm") -> bytes:
 
     pdf.set_font("Helvetica", size=11)
     pdf.cell(0, 8, f"Date: {datetime.utcnow().strftime('%d %B %Y')}", ln=True)
-    pdf.cell(0, 8, f"To: {client.client_name}", ln=True)
-    pdf.cell(0, 8, f"Re: {client.business_name or client.client_name}", ln=True)
+    pdf.cell(0, 8, f"To: {client['client_name']}", ln=True)
+    bn = client.get("business_name") or client["client_name"]
+    pdf.cell(0, 8, f"Re: {bn}", ln=True)
     pdf.ln(8)
 
     pdf.set_font("Helvetica", size=11)
     pdf.multi_cell(
         0,
         8,
-        f"Dear {client.client_name},\n\n"
-        f"We are pleased to confirm our engagement with {client.business_name or client.client_name} "
+        f"Dear {client['client_name']},\n\n"
+        f"We are pleased to confirm our engagement with {bn} "
         f"for the following professional services:\n",
     )
 
-    services = client.services or []
+    services = client.get("services") or []
     if not services:
         pdf.set_font("Helvetica", size=11)
         pdf.cell(0, 8, "  • As agreed", ln=True)
@@ -59,7 +59,7 @@ def generate_engagement_letter_pdf(client: "Client", firm: "Firm") -> bytes:
         "via your secure client portal. Fees will be as per our proposal.\n\n"
         "Please sign below to confirm your acceptance of this engagement.\n\n"
         "/sn1/\n\n"
-        f"Yours sincerely,\n{firm.name}",
+        f"Yours sincerely,\n{firm['name']}",
     )
 
     out = pdf.output(dest="S")
@@ -96,7 +96,7 @@ def get_docusign_access_token() -> str:
     return str(resp.json()["access_token"])
 
 
-def get_signing_url(client: "Client", firm: "Firm", envelope_id: str) -> str | None:
+def get_signing_url(client: dict[str, Any], firm: dict[str, Any], envelope_id: str) -> str | None:
     """Embedded/captive signing URL for the client (requires client_user_id on Signer)."""
     if not envelope_id:
         return None
@@ -114,14 +114,14 @@ def get_signing_url(client: "Client", firm: "Firm", envelope_id: str) -> str | N
         api_client.host = host
         api_client.set_default_header("Authorization", f"Bearer {token}")
         base = get_settings().frontend_url.rstrip("/")
-        return_url = f"{base}/portal/{firm.slug}/{client.onboarding_token}?engagement=return"
+        return_url = f"{base}/portal/{firm['slug']}/{client['onboarding_token']}?engagement=return"
         view = RecipientViewRequest(
             authentication_method="none",
-            client_user_id=str(client.id),
+            client_user_id=str(client["id"]),
             recipient_id="1",
             return_url=return_url,
-            user_name=client.client_name,
-            email=client.email,
+            user_name=client["client_name"],
+            email=client["email"],
         )
         views = EnvelopeViewsApi(api_client)
         result = views.create_recipient_view(s.docusign_account_id, envelope_id, recipient_view_request=view)
@@ -130,15 +130,17 @@ def get_signing_url(client: "Client", firm: "Firm", envelope_id: str) -> str | N
         return None
 
 
-def send_engagement_letter(client: "Client", firm: "Firm", db: "Session") -> dict:
-    from app.models.onboarding import ClientStatus, OnboardingActivity
-
+def send_engagement_letter(client: dict[str, Any], firm: dict[str, Any], sb: Client) -> dict:
     s = get_settings()
+    cid = uuid.UUID(str(client["id"]))
+    fid = uuid.UUID(str(client["firm_id"]))
+
     if not all([s.docusign_integration_key, s.docusign_account_id, s.docusign_private_key, s.docusign_user_id]):
-        client.engagement_letter_sent = True
-        client.status = ClientStatus.signature_pending
-        db.add(client)
-        db.commit()
+        repo.update_client(
+            sb,
+            cid,
+            {"engagement_letter_sent": True, "status": ClientStatus.signature_pending.value},
+        )
         return {
             "envelope_id": None,
             "status": "skipped",
@@ -175,16 +177,16 @@ def send_engagement_letter(client: "Client", firm: "Firm", db: "Session") -> dic
     )
 
     signer = Signer(
-        email=client.email,
-        name=client.client_name,
+        email=client["email"],
+        name=client["client_name"],
         recipient_id="1",
         routing_order="1",
-        client_user_id=str(client.id),
+        client_user_id=str(client["id"]),
         tabs=Tabs(sign_here_tabs=[sign_here]),
     )
 
     envelope_definition = EnvelopeDefinition(
-        email_subject=f"Please sign: Engagement Letter — {firm.name}",
+        email_subject=f"Please sign: Engagement Letter — {firm['name']}",
         documents=[document],
         recipients=Recipients(signers=[signer]),
         status="sent",
@@ -194,20 +196,23 @@ def send_engagement_letter(client: "Client", firm: "Firm", db: "Session") -> dic
     envelopes_api = EnvelopesApi(api_client)
     results = envelopes_api.create_envelope(account_id, envelope_definition=envelope_definition)
 
-    client.engagement_letter_sent = True
-    client.signature_envelope_id = results.envelope_id
-    client.status = ClientStatus.signature_pending
-    db.add(client)
-    db.add(
-        OnboardingActivity(
-            client_id=client.id,
-            firm_id=client.firm_id,
-            action="engagement_letter_sent",
-            description=f"DocuSign envelope {results.envelope_id} sent to {client.email}",
-            performed_by="system",
-        )
+    repo.update_client(
+        sb,
+        cid,
+        {
+            "engagement_letter_sent": True,
+            "signature_envelope_id": results.envelope_id,
+            "status": ClientStatus.signature_pending.value,
+        },
     )
-    db.commit()
+    repo.insert_activity(
+        sb,
+        client_id=cid,
+        firm_id=fid,
+        action="engagement_letter_sent",
+        description=f"DocuSign envelope {results.envelope_id} sent to {client['email']}",
+        performed_by="system",
+    )
 
     signing_url: str | None = None
     try:
@@ -217,28 +222,28 @@ def send_engagement_letter(client: "Client", firm: "Firm", db: "Session") -> dic
     if not signing_url and results.envelope_id:
         signing_url = f"https://app.docusign.com/sign/{results.envelope_id}"
 
-    portal = f"{get_settings().frontend_url.rstrip('/')}/portal/{firm.slug}/{client.onboarding_token}"
+    portal = f"{get_settings().frontend_url.rstrip('/')}/portal/{firm['slug']}/{client['onboarding_token']}"
     effective_signing = signing_url or portal
 
     from app.services.email_service import send_engagement_email
 
     send_engagement_email(
-        client.email,
-        client.client_name,
-        firm.name,
+        client["email"],
+        client["client_name"],
+        firm["name"],
         effective_signing,
-        firm_whatsapp=firm.whatsapp_number or "",
+        firm_whatsapp=firm.get("whatsapp_number") or "",
     )
 
     try:
         from app.services.messaging import send_message
 
         variables: dict[str, str] = {
-            "client_name": client.client_name,
-            "firm_name": firm.name,
+            "client_name": client["client_name"],
+            "firm_name": firm["name"],
             "signing_url": effective_signing,
         }
-        send_message(client.phone, "engagement_letter", variables)
+        send_message(client["phone"], "engagement_letter", variables)
     except Exception:
         pass
 
@@ -254,26 +259,30 @@ def check_signature_status(envelope_id: str) -> str:
     return "sent"
 
 
-def handle_docusign_webhook(payload: dict, db: "Session") -> None:
-    from app.models.onboarding import Client, ClientStatus
-
+def handle_docusign_webhook(payload: dict, sb: Client) -> None:
     envelope_id = payload.get("envelopeId") or payload.get("envelope_id")
     status = (payload.get("status") or "").lower()
     if status == "completed" and envelope_id:
-        client = db.query(Client).filter(Client.signature_envelope_id == envelope_id).first()
+        client = repo.client_by_envelope(sb, envelope_id)
         if client:
-            client.engagement_letter_signed = True
-            client.status = ClientStatus.in_progress
-            db.add(client)
-            db.commit()
+            cid = uuid.UUID(str(client["id"]))
+            repo.update_client(
+                sb,
+                cid,
+                {
+                    "engagement_letter_signed": True,
+                    "status": ClientStatus.in_progress.value,
+                },
+            )
 
 
-def render_engagement_letter_text(client: "Client", firm: "Firm") -> str:
-    services = client.services or []
+def render_engagement_letter_text(client: dict[str, Any], firm: dict[str, Any]) -> str:
+    services = client.get("services") or []
     services_list = "\n".join(f"- {x}" for x in services) or "- As agreed"
+    bn = client.get("business_name") or client["client_name"]
     return (
         f"LETTER OF ENGAGEMENT\n\nDate: {datetime.utcnow().strftime('%Y-%m-%d')}\n"
-        f"To: {client.client_name}\nRe: {client.business_name or client.client_name}\n\n"
-        f"Dear {client.client_name},\n\nWe are pleased to confirm our engagement for the following professional services:\n"
-        f"{services_list}\n\nYours sincerely,\n{firm.name}"
+        f"To: {client['client_name']}\nRe: {bn}\n\n"
+        f"Dear {client['client_name']},\n\nWe are pleased to confirm our engagement for the following professional services:\n"
+        f"{services_list}\n\nYours sincerely,\n{firm['name']}"
     ).strip()

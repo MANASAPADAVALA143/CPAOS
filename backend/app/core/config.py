@@ -7,7 +7,6 @@ load_dotenv()
 
 
 class Settings:
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./cpaos_dev.db")
     supabase_url: str | None = os.getenv("SUPABASE_URL")
     supabase_service_key: str | None = os.getenv("SUPABASE_SERVICE_KEY")
     supabase_storage_bucket: str = os.getenv("SUPABASE_STORAGE_BUCKET", "cpaos-documents")
