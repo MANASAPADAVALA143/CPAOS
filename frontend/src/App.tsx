@@ -13,9 +13,9 @@ import ClientSelfRegister from './pages/ClientSelfRegister'
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/home" element={<LandingPage />} />
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/register" element={<RegisterFirm />} />
       <Route path="/onboard/:firmSlug" element={<ClientSelfRegister />} />
       <Route path="/login" element={<Login />} />

@@ -338,7 +338,7 @@ export default function LandingPage() {
           <p className="font-display text-slate-400">CPAOS</p>
           <p className="mt-2">AI-powered client onboarding for accounting firms.</p>
           <div className="mt-6 flex justify-center gap-6">
-            <Link to="/" className="hover:text-white">
+            <Link to="/dashboard" className="hover:text-white">
               Dashboard
             </Link>
             <Link to={DEMO_PORTAL} className="hover:text-white">

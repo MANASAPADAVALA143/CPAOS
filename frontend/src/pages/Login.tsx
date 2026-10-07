@@ -21,7 +21,7 @@ export default function Login() {
 
   async function onMagicLink() {
     setBusy(true)
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/dashboard` } })
     setBusy(false)
     if (error) alert(error.message)
     else alert('Check your email for the login link.')
@@ -81,7 +81,7 @@ export default function Login() {
           </Link>
         </p>
         <Link className="text-xs text-slate-500 block mt-2" to="/">
-          ← Back to dashboard
+          ← Back to home
         </Link>
         <Link className="text-xs text-primary block mt-3" to="/portal/demo-accounting/22222222-2222-2222-2222-222222222222">
           Open public portal demo
