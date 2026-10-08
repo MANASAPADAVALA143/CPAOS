@@ -32,11 +32,20 @@ def _shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
 
 @router.get("/analytics/dashboard")
 def dashboard_analytics(
+    country: str | None = None,
     current: FirmUser = Depends(get_current_firm_user),
     sb: Client = Depends(get_db),
 ):
     firm_id = current.firm_id
-    clients = repo.all_clients_firm(sb, firm_id)
+    all_clients = repo.all_clients_firm(sb, firm_id)
+
+    country_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"count": 0, "pct_sum": 0})
+    for c in all_clients:
+        s = country_stats[str(c.get("country", ""))]
+        s["count"] += 1
+        s["pct_sum"] += int(c.get("completion_pct") or 0)
+
+    clients = [c for c in all_clients if c.get("country") == country] if country else all_clients
     total = len(clients)
     active_clients = sum(
         1 for c in clients if c.get("status") not in (ClientStatus.completed.value, ClientStatus.active.value)
@@ -62,16 +71,15 @@ def dashboard_analytics(
             deltas.append((ca - cr).total_seconds() / 86400)
     avg_completion_days = round(sum(deltas) / len(deltas), 1) if deltas else 0.0
 
-    docs_pending_review = repo.count_documents_pending_firm(sb, firm_id)
+    if country:
+        docs_pending_review = repo.count_documents_pending_clients(sb, firm_id, [str(c["id"]) for c in clients])
+    else:
+        docs_pending_review = repo.count_documents_pending_firm(sb, firm_id)
 
     signature_pending = sum(1 for c in clients if c.get("status") == ClientStatus.signature_pending.value)
 
     completed_total = sum(1 for c in clients if c.get("status") == ClientStatus.completed.value)
     completion_rate_pct = int(round(100 * completed_total / total)) if total else 0
-
-    by_country: dict[str, int] = defaultdict(int)
-    for c in clients:
-        by_country[str(c.get("country", ""))] += 1
 
     by_status: dict[str, int] = defaultdict(int)
     for c in clients:
@@ -108,7 +116,7 @@ def dashboard_analytics(
         trend[key] += 1
 
     months_out = []
-    for delta in (-3, -2, -1, 0):
+    for delta in (-5, -4, -3, -2, -1, 0):
         yy, mm = _shift_month(now.year, now.month, delta)
         label = calendar.month_abbr[mm]
         key = f"{yy}-{mm:02d}"
@@ -123,7 +131,14 @@ def dashboard_analytics(
             "signature_pending": signature_pending,
             "completion_rate_pct": completion_rate_pct,
         },
-        "by_country": [{"country": k, "count": v} for k, v in sorted(by_country.items(), key=lambda x: -x[1])],
+        "by_country": [
+            {
+                "country": k,
+                "count": v["count"],
+                "avg_completion_pct": int(round(v["pct_sum"] / v["count"])) if v["count"] else 0,
+            }
+            for k, v in sorted(country_stats.items(), key=lambda x: -x[1]["count"])
+        ],
         "by_status": [{"status": k, "count": v} for k, v in sorted(by_status.items(), key=lambda x: -x[1])],
         "recent_activity": recent_activity,
         "completion_trend": months_out,

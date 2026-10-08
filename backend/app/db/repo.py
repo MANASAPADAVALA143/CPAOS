@@ -319,6 +319,20 @@ def count_documents_pending_firm(sb: Client, firm_id: uuid.UUID) -> int:
     return int(r.count or 0)
 
 
+def count_documents_pending_clients(sb: Client, firm_id: uuid.UUID, client_ids: list[str]) -> int:
+    if not client_ids:
+        return 0
+    r = (
+        sb.table("documents")
+        .select("id", count="exact")
+        .eq("firm_id", str(firm_id))
+        .eq("review_status", "pending")
+        .in_("client_id", client_ids)
+        .execute()
+    )
+    return int(r.count or 0)
+
+
 def all_clients_firm(sb: Client, firm_id: uuid.UUID) -> list[dict[str, Any]]:
     r = sb.table("clients").select("*").eq("firm_id", str(firm_id)).execute()
     return r.data or []

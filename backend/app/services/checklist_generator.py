@@ -166,6 +166,45 @@ UAE_CHECKLISTS = {
             ("Fixed Asset Register", "If applicable", False),
         ],
     },
+    "partnership": {
+        "Identity": [
+            ("Trade License", "Valid trade license listing all partners", True),
+            ("Partnership Agreement", "Signed partnership agreement or MOA", True),
+            ("Partners Passports", "Passport copies of all partners", True),
+            ("Partners Emirates ID", "Emirates ID of all UAE resident partners", True),
+        ],
+        "Tax": [
+            ("VAT Registration", "TRN certificate if VAT registered", False),
+            ("VAT Returns", "Last 12 months if VAT registered", False),
+            ("CT Registration", "Corporate Tax registration", True),
+        ],
+        "Financial": [
+            ("Bank Statements", "All partnership accounts 12 months", True),
+            ("Profit Sharing Schedule", "Partner capital and profit split", True),
+            ("Financial Statements", "Last 2 years if available", False),
+        ],
+    },
+    "llp": {
+        "Identity": [
+            ("Free Zone License", "Valid free zone license (e.g. DMCC, DIFC, ADGM)", True),
+            ("Certificate of Incorporation", "Free zone registration certificate", True),
+            ("Articles of Association", "Constitutional documents", True),
+            ("Register of Members", "Members and shareholding register", True),
+            ("UBO Declaration", "Ultimate Beneficial Owner register", True),
+            ("Members Passports", "Passport copies of all members and managers", True),
+        ],
+        "Tax": [
+            ("CT Registration", "Corporate Tax registration", True),
+            ("Qualifying Free Zone Assessment", "QFZP status if claiming 0% rate", False),
+            ("VAT Registration", "TRN certificate if VAT registered", False),
+            ("VAT Returns", "Last 12 months if VAT registered", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("Audited Accounts", "Last 2 years (required by most free zones)", True),
+            ("Lease Agreement", "Free zone office or flexi-desk lease", False),
+        ],
+    },
 }
 
 UK_CHECKLISTS = {
@@ -348,6 +387,40 @@ US_CHECKLISTS = {
 }
 
 SINGAPORE_CHECKLISTS = {
+    "individual": {
+        "Identity": [
+            ("NRIC or Passport", "NRIC for citizens/PRs, passport and work pass for foreigners", True),
+            ("Proof of Address", "Utility bill or bank statement last 3 months", False),
+        ],
+        "Tax": [
+            ("Notice of Assessment", "Last 2 years IRAS NOA", True),
+            ("IR8A", "Employer income statement if not auto-included", False),
+            ("Previous Form B1", "Last 2 years individual tax returns", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("CPF Statement", "CPF contribution history", False),
+            ("Rental Income Docs", "Tenancy agreements if rental income", False),
+            ("Investment Statements", "Dividends and overseas income", False),
+        ],
+    },
+    "sole_proprietor": {
+        "Identity": [
+            ("ACRA Business Profile", "BizFile business profile", True),
+            ("Owner NRIC or Passport", "Sole proprietor ID", True),
+        ],
+        "Tax": [
+            ("Previous Form B", "Last 2 years IRAS Form B", True),
+            ("Notice of Assessment", "Last 2 years IRAS NOA", True),
+            ("GST Registration", "If GST registered over $1M turnover", False),
+            ("GST Returns", "Last 12 months if registered", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "Business account 12 months", True),
+            ("Income and Expense Records", "Current year sales and purchase records", True),
+            ("MediSave Contributions", "Self-employed MediSave payment records", True),
+        ],
+    },
     "private_limited": {
         "Identity": [
             ("ACRA BizFile", "Company profile from ACRA", True),
@@ -368,22 +441,199 @@ SINGAPORE_CHECKLISTS = {
     },
 }
 
+AUSTRALIA_CHECKLISTS = {
+    "individual": {
+        "Identity": [
+            ("Driver Licence or Passport", "Valid photo ID", True),
+            ("TFN", "Tax File Number", True),
+            ("myGov Access", "ATO linked myGov access or prefill report", False),
+        ],
+        "Tax": [
+            ("Income Statement", "PAYG income statement from employer(s)", True),
+            ("Previous Tax Returns", "Last 2 years individual returns and NOAs", True),
+            ("Private Health Insurance Statement", "If held during the year", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("Investment Statements", "Shares, dividends, managed funds", False),
+            ("Rental Property Docs", "Rental statements and expenses if applicable", False),
+            ("Work Expense Receipts", "Deductible work-related expenses", False),
+        ],
+    },
+    "sole_trader": {
+        "Identity": [
+            ("Driver Licence or Passport", "Valid photo ID", True),
+            ("TFN", "Individual Tax File Number", True),
+            ("ABN Registration", "Australian Business Number confirmation", True),
+        ],
+        "Tax": [
+            ("BAS Statements", "Business Activity Statements last 4 quarters", True),
+            ("Previous Tax Returns", "Last 2 years returns with business schedule", True),
+            ("GST Registration", "If turnover over $75K", False),
+            ("PAYG Instalments", "Instalment notices if applicable", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "Business account 12 months", True),
+            ("Income and Expense Records", "Current year invoices and receipts", True),
+            ("Vehicle Logbook", "If claiming motor vehicle expenses", False),
+        ],
+    },
+    "partnership": {
+        "Identity": [
+            ("Partnership Agreement", "Signed partnership agreement", True),
+            ("ABN Registration", "Partnership ABN confirmation", True),
+            ("Partnership TFN", "Tax File Number for the partnership", True),
+            ("Partners ID", "Photo ID and TFN for each partner", True),
+        ],
+        "Tax": [
+            ("BAS Statements", "Business Activity Statements last 4 quarters", True),
+            ("Previous Partnership Returns", "Last 2 years partnership tax returns", True),
+            ("GST Registration", "If turnover over $75K", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All partnership accounts 12 months", True),
+            ("Profit Distribution", "Partner profit and capital split", True),
+            ("Payroll Summary", "STP finalisation if employees", False),
+        ],
+    },
+    "private_limited": {
+        "Identity": [
+            ("ASIC Registration", "Certificate of registration and current extract", True),
+            ("Company Constitution", "Constitution or replaceable rules confirmation", True),
+            ("ABN Registration", "Company ABN confirmation", True),
+            ("Company TFN", "Tax File Number for the company", True),
+            ("Directors ID", "Director IDs and photo ID for all directors", True),
+            ("Share Register", "Members and shareholding register", True),
+        ],
+        "Tax": [
+            ("BAS Statements", "Business Activity Statements last 4 quarters", True),
+            ("Previous Company Returns", "Last 2 years company tax returns", True),
+            ("GST Registration", "If turnover over $75K", False),
+            ("Payroll Summary", "STP finalisation and super contributions", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("Financial Statements", "Last 2 years P&L and balance sheet", True),
+            ("Division 7A Loans", "Shareholder loan agreements if any", False),
+            ("Fixed Asset Register", "Depreciation schedule", False),
+        ],
+    },
+    "trust": {
+        "Identity": [
+            ("Trust Deed", "Signed trust deed and any variations", True),
+            ("Trustee Details", "ID for individual trustees or ASIC extract for corporate trustee", True),
+            ("ABN Registration", "Trust ABN confirmation", True),
+            ("Trust TFN", "Tax File Number for the trust", True),
+        ],
+        "Tax": [
+            ("Previous Trust Returns", "Last 2 years trust tax returns", True),
+            ("Distribution Resolutions", "Trustee resolutions for the year", True),
+            ("BAS Statements", "If registered for GST", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All trust accounts 12 months", True),
+            ("Financial Statements", "Last 2 years", True),
+        ],
+        "SMSF": [
+            ("SMSF Trust Deed", "If the trust is a self-managed super fund", False),
+            ("SMSF Annual Return", "Last 2 years SMSF annual returns", False),
+            ("SMSF Audit Report", "Independent auditor report", False),
+            ("Member Statements", "Member balances and contributions", False),
+            ("Investment Strategy", "Current documented investment strategy", False),
+        ],
+    },
+}
+
+OTHER_CHECKLISTS = {
+    "individual": {
+        "Identity": [
+            ("Passport", "Valid passport bio page", True),
+            ("Proof of Address", "Utility bill or bank statement last 3 months", True),
+            ("Tax ID", "Local taxpayer identification number", True),
+        ],
+        "Tax": [
+            ("Previous Tax Returns", "Last 2 years filed returns", False),
+            ("Income Statements", "Employer or payer income statements", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+        ],
+    },
+    "sole_proprietor": {
+        "Identity": [
+            ("Owner Passport", "Valid passport bio page", True),
+            ("Proof of Address", "Utility bill or bank statement last 3 months", True),
+            ("Business Registration", "Local business or trade registration", True),
+            ("Tax ID", "Business or personal taxpayer number", True),
+        ],
+        "Tax": [
+            ("Previous Tax Returns", "Last 2 years filed returns", True),
+            ("Indirect Tax Registration", "VAT/GST/sales tax registration if applicable", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "Business account 12 months", True),
+            ("Income and Expense Records", "Current year sales and purchases", False),
+        ],
+    },
+    "partnership": {
+        "Identity": [
+            ("Partnership Agreement", "Signed partnership deed or agreement", True),
+            ("Business Registration", "Local registration certificate", True),
+            ("Partners Passports", "Passport copies of all partners", True),
+            ("Tax ID", "Partnership taxpayer number", True),
+        ],
+        "Tax": [
+            ("Previous Tax Returns", "Last 2 years partnership returns", True),
+            ("Indirect Tax Registration", "VAT/GST/sales tax registration if applicable", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("Financial Statements", "Last 2 years if available", False),
+        ],
+    },
+    "private_limited": {
+        "Identity": [
+            ("Certificate of Incorporation", "Company registration certificate", True),
+            ("Constitutional Documents", "Articles, bylaws or memorandum", True),
+            ("Register of Shareholders", "Shareholders and ownership percentages", True),
+            ("Directors Passports", "Passport copies of all directors", True),
+            ("UBO Declaration", "Ultimate beneficial owners", True),
+            ("Tax ID", "Company taxpayer number", True),
+        ],
+        "Tax": [
+            ("Previous Tax Returns", "Last 2 years corporate returns", True),
+            ("Indirect Tax Registration", "VAT/GST/sales tax registration if applicable", False),
+        ],
+        "Financial": [
+            ("Bank Statements", "All accounts 12 months", True),
+            ("Financial Statements", "Last 2 years P&L and balance sheet", True),
+            ("Board Resolution", "Authorising the firm to act", False),
+        ],
+    },
+}
+
 COUNTRY_MAP = {
     "India": INDIA_CHECKLISTS,
     "UAE": UAE_CHECKLISTS,
     "UK": UK_CHECKLISTS,
     "US": US_CHECKLISTS,
     "Singapore": SINGAPORE_CHECKLISTS,
+    "Australia": AUSTRALIA_CHECKLISTS,
+    "Other": OTHER_CHECKLISTS,
 }
 
 ENTITY_ALIASES = {
     "UK": {"sole_proprietor": "sole_trader"},
     "US": {"private_limited": "c_corp", "partnership": "llc", "llp": "llc"},
+    "UAE": {"sole_trader": "sole_proprietor"},
+    "Singapore": {"sole_trader": "sole_proprietor"},
+    "Australia": {"sole_proprietor": "sole_trader", "public_limited": "private_limited"},
+    "Other": {"sole_trader": "sole_proprietor", "llp": "partnership", "llc": "private_limited"},
 }
 
 
 def generate_checklist(country: str, entity_type: str, services: list) -> list[dict]:
-    country_map = COUNTRY_MAP.get(country, INDIA_CHECKLISTS)
+    country_map = COUNTRY_MAP.get(country, OTHER_CHECKLISTS)
     aliases = ENTITY_ALIASES.get(country, {})
     resolved = aliases.get(entity_type, entity_type)
     entity_docs = (

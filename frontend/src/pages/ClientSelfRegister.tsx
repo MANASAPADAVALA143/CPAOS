@@ -9,12 +9,12 @@ const countries = ['India', 'UAE', 'UK', 'US', 'Singapore', 'Australia', 'Other'
 
 const entityOptions: Record<string, string[]> = {
   India: ['individual', 'sole_proprietor', 'partnership', 'llp', 'private_limited', 'public_limited', 'trust', 'other'],
-  UAE: ['individual', 'sole_proprietor', 'private_limited'],
+  UAE: ['individual', 'sole_proprietor', 'partnership', 'llp', 'private_limited'],
   UK: ['individual', 'sole_trader', 'private_limited', 'llp'],
   US: ['individual', 'sole_proprietor', 'llc', 's_corp', 'c_corp'],
-  Singapore: ['private_limited'],
-  Australia: ['private_limited'],
-  Other: ['other'],
+  Singapore: ['individual', 'sole_proprietor', 'private_limited'],
+  Australia: ['individual', 'sole_trader', 'partnership', 'private_limited', 'trust'],
+  Other: ['individual', 'sole_proprietor', 'partnership', 'private_limited'],
 }
 
 type FirmPublic = {
