@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
@@ -319,6 +319,43 @@ def list_clients(
     ]
 
 
+EXPIRY_WINDOW_DAYS = 30
+
+
+@router.get("/clients/expiring-docs")
+def expiring_docs(
+    include_expired: bool = True,
+    current: FirmUser = Depends(get_current_firm_user),
+    sb: Client = Depends(get_db),
+):
+    today = date.today()
+    cutoff = today + timedelta(days=EXPIRY_WINDOW_DAYS)
+    rows = repo.checklist_items_expiring_by(sb, current.firm_id, cutoff.isoformat())
+    out = []
+    for i in rows:
+        expiry = date.fromisoformat(str(i["expiry_date"])[:10])
+        days_left = (expiry - today).days
+        if days_left < 0 and not include_expired:
+            continue
+        client = i.get("clients") or {}
+        out.append(
+            {
+                "checklist_item_id": str(i["id"]),
+                "client_id": str(i["client_id"]),
+                "client_name": client.get("client_name"),
+                "country": client.get("country"),
+                "category": i["category"],
+                "item_name": i["item_name"],
+                "status": i["status"],
+                "document_id": str(i["document_id"]) if i.get("document_id") else None,
+                "expiry_date": expiry.isoformat(),
+                "days_until_expiry": days_left,
+                "is_expired": days_left < 0,
+            }
+        )
+    return out
+
+
 @router.get("/clients/{client_id}")
 def get_client(
     client_id: uuid.UUID,
@@ -368,6 +405,7 @@ def get_checklist(
             "status": i["status"],
             "document_id": str(i["document_id"]) if i.get("document_id") else None,
             "display_order": i.get("display_order", 0),
+            "expiry_date": i.get("expiry_date"),
         }
         for i in items
     ]

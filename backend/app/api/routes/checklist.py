@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -88,3 +89,36 @@ def patch_checklist_item(
     recompute_client_completion(sb, cid)
     maybe_complete_client(sb, cid)
     return {"ok": True}
+
+
+class PatchExpiryBody(BaseModel):
+    expiry_date: date | None = None
+
+
+@router.patch("/checklist/{item_id}/expiry")
+def patch_checklist_expiry(
+    item_id: uuid.UUID,
+    body: PatchExpiryBody,
+    current: FirmUser = Depends(get_current_firm_user),
+    sb: Client = Depends(get_db),
+):
+    item = repo.checklist_item_by_id(sb, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    cid = uuid.UUID(str(item["client_id"]))
+    c = repo.client_by_id(sb, cid, current.firm_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.get("document_id"):
+        raise HTTPException(status_code=400, detail="Upload a document before setting an expiry date")
+    expiry = body.expiry_date.isoformat() if body.expiry_date else None
+    repo.update_checklist_item(sb, item_id, {"expiry_date": expiry})
+    repo.insert_activity(
+        sb,
+        client_id=cid,
+        firm_id=current.firm_id,
+        action="checklist_expiry_updated",
+        description=f"Expiry for {item['item_name']} set to {expiry or 'none'}",
+        performed_by=str(current.id),
+    )
+    return {"ok": True, "expiry_date": expiry}

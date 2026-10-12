@@ -58,6 +58,18 @@ export default function ClientDetail() {
     load().catch(() => toast.error('Failed to load client'))
   }, [id])
 
+  async function updateExpiry(itemId: string, expiry: string | null) {
+    const previous = checklist.find((i) => i.id === itemId)?.expiry_date ?? null
+    setChecklist((rows) => rows.map((r) => (r.id === itemId ? { ...r, expiry_date: expiry } : r)))
+    try {
+      await api.patch(`/api/checklist/${itemId}/expiry`, { expiry_date: expiry })
+      toast.success(expiry ? 'Expiry date saved' : 'Expiry date cleared')
+    } catch (e: any) {
+      setChecklist((rows) => rows.map((r) => (r.id === itemId ? { ...r, expiry_date: previous } : r)))
+      toast.error(e?.response?.data?.detail || 'Failed to save expiry date')
+    }
+  }
+
   useEffect(() => {
     if (!selected) return
     const item = checklist.find((i) => i.id === selected)
@@ -111,7 +123,12 @@ export default function ClientDetail() {
 
         <Tabs.Content value="checklist" className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2 rounded-xl border border-border bg-card p-4">
-            <ChecklistPanel items={checklist} selectedId={selected} onSelect={setSelected} />
+            <ChecklistPanel
+              items={checklist}
+              selectedId={selected}
+              onSelect={setSelected}
+              onExpiryChange={updateExpiry}
+            />
           </div>
           <div className="md:col-span-3 rounded-xl border border-border bg-card p-4">
             {!selectedItem && <div className="text-slate-400">Select an item</div>}

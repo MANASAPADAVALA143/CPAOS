@@ -113,6 +113,18 @@ def checklist_items_for_client(sb: Client, client_id: uuid.UUID) -> list[dict[st
     return r.data or []
 
 
+def checklist_items_expiring_by(sb: Client, firm_id: uuid.UUID, cutoff_iso: str) -> list[dict[str, Any]]:
+    r = (
+        sb.table("checklist_items")
+        .select("*, clients!inner(client_name, country, firm_id)")
+        .eq("clients.firm_id", str(firm_id))
+        .lte("expiry_date", cutoff_iso)
+        .order("expiry_date")
+        .execute()
+    )
+    return r.data or []
+
+
 def checklist_pending_for_client(sb: Client, client_id: uuid.UUID) -> list[dict[str, Any]]:
     r = (
         sb.table("checklist_items")

@@ -64,8 +64,12 @@ CREATE TABLE IF NOT EXISTS checklist_items (
     document_id UUID,
     waived_reason TEXT,
     waived_by UUID REFERENCES firm_users(id),
-    display_order INTEGER NOT NULL DEFAULT 0
+    display_order INTEGER NOT NULL DEFAULT 0,
+    expiry_date DATE
 );
+
+-- For databases created before expiry_date existed.
+ALTER TABLE checklist_items ADD COLUMN IF NOT EXISTS expiry_date DATE;
 
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -114,6 +118,7 @@ CREATE TABLE IF NOT EXISTS onboarding_activity (
 
 CREATE INDEX IF NOT EXISTS idx_clients_firm_id ON clients (firm_id);
 CREATE INDEX IF NOT EXISTS idx_checklist_client_id ON checklist_items (client_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_expiry_date ON checklist_items (expiry_date) WHERE expiry_date IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_documents_client_firm ON documents (client_id, firm_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_client ON whatsapp_logs (client_id);
 CREATE INDEX IF NOT EXISTS idx_activity_firm_created ON onboarding_activity (firm_id, created_at DESC);

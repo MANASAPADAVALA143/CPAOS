@@ -30,6 +30,16 @@ type ClientRow = {
   created_at?: string | null
 }
 
+type ExpiringDoc = {
+  checklist_item_id: string
+  client_id: string
+  item_name: string
+  expiry_date: string
+  is_expired: boolean
+}
+
+type ExpiryFlags = { expired: string[]; expiring: string[] }
+
 type Kpis = {
   active_clients: number
   completed_this_month: number
@@ -87,12 +97,18 @@ export default function Dashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [country, setCountry] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
+  const [expiringDocs, setExpiringDocs] = useState<ExpiringDoc[]>([])
+  const [expiringOnly, setExpiringOnly] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const loadClients = useCallback(async () => {
     try {
-      const res = await api.get('/api/clients')
-      setClients(res.data)
+      const [cRes, eRes] = await Promise.all([
+        api.get('/api/clients'),
+        api.get('/api/clients/expiring-docs').catch(() => null),
+      ])
+      setClients(cRes.data)
+      setExpiringDocs(eRes?.data ?? [])
     } catch {
       setClients([])
     }
@@ -116,6 +132,18 @@ export default function Dashboard() {
   useEffect(() => {
     void loadAnalytics()
   }, [loadAnalytics])
+
+  const expiryByClient = useMemo(() => {
+    const map = new Map<string, ExpiryFlags>()
+    for (const d of expiringDocs) {
+      const flags = map.get(d.client_id) ?? { expired: [], expiring: [] }
+      const label = `${d.item_name} (${d.expiry_date})`
+      if (d.is_expired) flags.expired.push(label)
+      else flags.expiring.push(label)
+      map.set(d.client_id, flags)
+    }
+    return map
+  }, [expiringDocs])
 
   const load = useCallback(async () => {
     await Promise.all([loadClients(), loadAnalytics()])
@@ -142,9 +170,12 @@ export default function Dashboard() {
   const filtered = useMemo(
     () =>
       clients.filter(
-        (c) => (country === 'all' || c.country === country) && (status === 'all' || c.status === status),
+        (c) =>
+          (country === 'all' || c.country === country) &&
+          (status === 'all' || c.status === status) &&
+          (!expiringOnly || expiryByClient.has(c.id)),
       ),
-    [clients, country, status],
+    [clients, country, status, expiringOnly, expiryByClient],
   )
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
@@ -424,6 +455,18 @@ export default function Dashboard() {
               {s.label}
             </button>
           ))}
+          <button
+            type="button"
+            aria-pressed={expiringOnly}
+            onClick={() => setExpiringOnly((v) => !v)}
+            className={`rounded-full px-3 py-1 text-xs border ${
+              expiringOnly
+                ? 'border-amber-500 bg-amber-500/15 text-amber-300'
+                : 'border-border text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            ⚠️ Expiring Soon ({expiryByClient.size})
+          </button>
         </div>
 
         <div className="mt-3 rounded-xl border border-border bg-[#0B1628] overflow-x-auto">
@@ -452,13 +495,32 @@ export default function Dashboard() {
                 filtered.map((c) => {
                   const st = STATUS_STYLE[c.status] ?? { label: c.status, className: 'bg-slate-500/15 text-slate-400' }
                   const pct = Number(c.completion_pct) || 0
+                  const expiry = expiryByClient.get(c.id)
                   return (
                     <tr key={c.id} className="border-t border-border hover:bg-white/[0.02]">
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-100">{c.client_name}</div>
+                        <div className="font-medium text-slate-100 flex items-center gap-2 flex-wrap">
+                          {c.client_name}
+                          {expiry && expiry.expired.length > 0 && (
+                            <span
+                              className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-xs font-normal text-red-400"
+                              title={`Expired: ${expiry.expired.join(', ')}`}
+                            >
+                              🔴 {expiry.expired.length} expired
+                            </span>
+                          )}
+                          {expiry && expiry.expiring.length > 0 && (
+                            <span
+                              className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-xs font-normal text-amber-400"
+                              title={`Expiring within 30 days: ${expiry.expiring.join(', ')}`}
+                            >
+                              ⚠️ {expiry.expiring.length} expiring
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500">{c.business_name}</div>
                       </td>
                       <td className="px-4 py-3">
