@@ -73,3 +73,111 @@ class MessageDeliveryStatus(str, enum.Enum):
     sent = "sent"
     delivered = "delivered"
     failed = "failed"
+
+
+# ============================================================================
+# CA PRACTICE OS - ASSIGNMENT MANAGEMENT ENUMS
+# ============================================================================
+
+class ServiceCategory(str, enum.Enum):
+    """Service categories for assignments"""
+    gst = "GST"
+    income_tax = "Income Tax"
+    tds = "TDS"
+    tcs = "TCS"
+    mca = "MCA"
+    roc = "ROC"
+    audit = "Audit"
+    accounting = "Accounting"
+    payroll = "Payroll"
+    advisory = "Advisory"
+    other = "Other"
+
+
+class AssignmentType(str, enum.Enum):
+    """Common assignment types (subset - can be extended)"""
+    # GST
+    gstr_1 = "GSTR-1"
+    gstr_3b = "GSTR-3B"
+    gstr_9 = "GSTR-9"
+    gstr_9c = "GSTR-9C"
+    
+    # Income Tax
+    itr = "Income Tax Return"
+    advance_tax = "Advance Tax"
+    tax_audit = "Tax Audit"
+    tax_computation = "Tax Computation"
+    
+    # TDS
+    tds_24q = "24Q"
+    tds_26q = "26Q"
+    tds_27q = "27Q"
+    tds_27eq = "27EQ"
+    
+    # MCA
+    aoc_4 = "AOC-4"
+    mgt_7 = "MGT-7"
+    dir_3_kyc = "DIR-3 KYC"
+    
+    # Audit
+    statutory_audit = "Statutory Audit"
+    internal_audit = "Internal Audit"
+    tax_audit_report = "Tax Audit Report"
+    
+    # Accounting
+    bookkeeping = "Bookkeeping"
+    bank_reconciliation = "Bank Reconciliation"
+    financial_statements = "Financial Statements"
+    
+    # Other
+    other = "Other"
+
+
+class AssignmentStatus(str, enum.Enum):
+    """Assignment lifecycle status"""
+    created = "created"
+    assigned = "assigned"
+    in_progress = "in_progress"
+    submitted = "submitted"
+    manager_review = "manager_review"
+    partner_review = "partner_review"
+    approved = "approved"
+    completed = "completed"
+    on_hold = "on_hold"
+    cancelled = "cancelled"
+
+
+class AssignmentPriority(str, enum.Enum):
+    """Assignment priority levels"""
+    low = "low"
+    medium = "medium"
+    high = "high"
+    urgent = "urgent"
+
+
+class ReviewLevel(str, enum.Enum):
+    """Review levels in workflow"""
+    manager = "manager"
+    partner = "partner"
+
+
+class ReviewStatus(str, enum.Enum):
+    """Review status"""
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    changes_requested = "changes_requested"
+
+
+class ClientCategory(str, enum.Enum):
+    """Client categorization"""
+    premium = "Premium"
+    standard = "Standard"
+    basic = "Basic"
+
+
+class RiskClassification(str, enum.Enum):
+    """Client risk classification"""
+    low = "Low"
+    medium = "Medium"
+    high = "High"

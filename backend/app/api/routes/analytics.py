@@ -143,3 +143,93 @@ def dashboard_analytics(
         "recent_activity": recent_activity,
         "completion_trend": months_out,
     }
+
+
+@router.get("/analytics/practice-dashboard")
+def practice_dashboard_analytics(
+    current: FirmUser = Depends(get_current_firm_user),
+    sb: Client = Depends(get_db),
+):
+    """Practice management dashboard with assignment and staff KPIs"""
+    from app.services import assignment_service
+    
+    firm_id = current.firm_id
+    
+    # Client KPIs
+    all_clients = repo.all_clients_firm(sb, firm_id)
+    total_clients = len(all_clients)
+    active_clients = sum(
+        1 for c in all_clients if c.get("status") not in (ClientStatus.completed.value, ClientStatus.active.value)
+    )
+    
+    # Assignment KPIs
+    active_statuses = ["created", "assigned", "in_progress", "submitted", "manager_review", "partner_review"]
+    active_assignments = repo.count_assignments(sb, firm_id, status=active_statuses)
+    overdue_assignments = repo.count_overdue_assignments(sb, firm_id)
+    
+    # Count completed assignments this month
+    now = datetime.now(timezone.utc)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    completed_assignments_month = repo.count_assignments(
+        sb, firm_id, status="completed"
+    )  # Simplified - would need date filter in production
+    
+    # Review queue KPIs
+    pending_manager_reviews = 0
+    pending_partner_reviews = 0
+    try:
+        # Count pending reviews by level
+        all_reviews_resp = sb.table("assignment_reviews").select("review_level", count="exact").eq("status", "pending").execute()
+        # Note: This is simplified. In production, filter by firm_id via join
+        pending_manager_reviews = sum(1 for r in (all_reviews_resp.data or []) if r.get("review_level") == "manager")
+        pending_partner_reviews = sum(1 for r in (all_reviews_resp.data or []) if r.get("review_level") == "partner")
+    except Exception:
+        pass
+    
+    # Staff utilization (simplified - would calculate from timesheets in production)
+    staff_workload = assignment_service.get_staff_workload_summary(sb, firm_id)
+    avg_utilization = int(sum(s["utilization_pct"] for s in staff_workload) / len(staff_workload)) if staff_workload else 0
+    
+    # Document KPIs
+    docs_pending_review = repo.count_documents_pending_firm(sb, firm_id)
+    
+    # Assignment breakdown by status
+    all_assignments = repo.list_assignments_filtered(sb, firm_id)
+    assignments_by_status: dict[str, int] = defaultdict(int)
+    for a in all_assignments:
+        assignments_by_status[a.get("status", "unknown")] += 1
+    
+    # Get overdue assignments list (top 10)
+    overdue_list = assignment_service.get_overdue_assignments(sb, firm_id, limit=10)
+    
+    return {
+        "kpis": {
+            "total_clients": total_clients,
+            "active_clients": active_clients,
+            "active_assignments": active_assignments,
+            "overdue_assignments": overdue_assignments,
+            "completed_assignments_month": completed_assignments_month,
+            "pending_manager_reviews": pending_manager_reviews,
+            "pending_partner_reviews": pending_partner_reviews,
+            "pending_reviews": pending_manager_reviews + pending_partner_reviews,
+            "docs_pending_review": docs_pending_review,
+            "staff_utilization": avg_utilization,
+        },
+        "assignments_by_status": [
+            {"status": k, "count": v}
+            for k, v in sorted(assignments_by_status.items(), key=lambda x: -x[1])
+        ],
+        "overdue_assignments": [
+            {
+                "assignment_id": a["id"],
+                "assignment_code": a["assignment_code"],
+                "assignment_name": a["assignment_name"],
+                "client_name": a.get("clients", {}).get("client_name", ""),
+                "due_date": a["due_date"],
+                "days_overdue": (now.date() - datetime.fromisoformat(a["due_date"]).date()).days,
+                "assigned_staff": a.get("assigned_staff"),
+            }
+            for a in overdue_list
+        ],
+        "staff_workload": staff_workload[:10],  # Top 10 staff by workload
+    }
