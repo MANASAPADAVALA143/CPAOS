@@ -1,0 +1,17 @@
+# Read when the Railway service Root Directory is the repo root (empty / ".").
+# Forces Docker so `pip` is available (avoids Railpack "pip: not found").
+#
+# If you instead set Root Directory to `backend`, Railway uses backend/railway.toml
+# and backend/Dockerfile.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Do not set startCommand here: it overrides Dockerfile CMD and `$PORT` often
+# fails to expand (no shell), so the app never binds to Railway’s port and the
+# healthcheck times out. The Dockerfile CMD uses `sh -c` with ${PORT}.
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+healthcheckTimeout = 120

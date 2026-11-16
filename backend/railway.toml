@@ -1,0 +1,13 @@
+# Use when Railway Root Directory = `backend` (not the repo root).
+# If Root Directory is empty, Railway reads /railway.toml at repo root instead.
+# Env vars are set in the Railway dashboard.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Leave startCommand unset so Dockerfile CMD runs (see root comment in /railway.toml).
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+healthcheckTimeout = 120
