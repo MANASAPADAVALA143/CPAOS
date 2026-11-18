@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter } from 'lucide-react'
 import api from '../lib/api'
 import type { Assignment } from '../types/assignment'
 import { AssignmentStatusBadge } from '../components/AssignmentStatusBadge'
 import { AssignmentPriorityBadge } from '../components/AssignmentPriorityBadge'
+import { CreateAssignmentModal } from '../components/CreateAssignmentModal'
 
 export default function AssignmentList() {
+  const navigate = useNavigate()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<string>('all')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const loadAssignments = useCallback(async () => {
     try {
@@ -56,13 +59,13 @@ export default function AssignmentList() {
             <h1 className="text-2xl font-bold text-white">Assignments</h1>
             <p className="text-sm text-slate-400 mt-1">Manage client assignments and tasks</p>
           </div>
-          <Link
-            to="/assignments/new"
+          <button
+            onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-[#C9A227] px-4 py-2 text-sm font-medium text-white hover:bg-[#D4B03A] transition-colors"
           >
             <Plus className="h-4 w-4" />
             New Assignment
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -241,6 +244,16 @@ export default function AssignmentList() {
           </div>
         )}
       </div>
+
+      {/* Create Assignment Modal */}
+      <CreateAssignmentModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={(assignmentId) => {
+          void loadAssignments()
+          navigate(`/assignments/${assignmentId}`)
+        }}
+      />
     </div>
   )
 }
