@@ -15,6 +15,8 @@ import AssignmentList from './pages/AssignmentList'
 import AssignmentDetail from './pages/AssignmentDetail'
 import MyTasks from './pages/MyTasks'
 import ReviewQueue from './pages/ReviewQueue'
+import ComplianceDashboard from './pages/ComplianceDashboard'
+import ComplianceCalendar from './pages/ComplianceCalendar'
 
 export default function App() {
   return (
@@ -40,6 +42,10 @@ export default function App() {
       <Route path="/assignments/:id" element={<Layout><AssignmentDetail /></Layout>} />
       <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
       <Route path="/review-queue" element={<Layout><ReviewQueue /></Layout>} />
+      
+      {/* Compliance routes - Phase 2 */}
+      <Route path="/compliance/dashboard" element={<Layout><ComplianceDashboard /></Layout>} />
+      <Route path="/compliance" element={<Layout><ComplianceCalendar /></Layout>} />
     </Routes>
   )
 }
