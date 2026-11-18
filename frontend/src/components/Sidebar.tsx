@@ -21,8 +21,8 @@ const navigation = [
   { name: 'My Tasks', href: '/my-tasks', icon: CheckSquare },
   { name: 'Review Queue', href: '/review-queue', icon: FileText },
   { name: 'Compliance', href: '/compliance/dashboard', icon: Calendar },
-  { name: 'Billing', href: '/billing', icon: DollarSign, badge: 'Phase 3' },
-  { name: 'Timesheets', href: '/timesheets', icon: Clock, badge: 'Phase 3' },
+  { name: 'Billing', href: '/billing', icon: DollarSign },
+  { name: 'Timesheets', href: '/timesheets', icon: Clock, badge: 'Coming Soon' },
 ]
 
 const bottomNavigation = [

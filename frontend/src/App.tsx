@@ -17,6 +17,7 @@ import MyTasks from './pages/MyTasks'
 import ReviewQueue from './pages/ReviewQueue'
 import ComplianceDashboard from './pages/ComplianceDashboard'
 import ComplianceCalendar from './pages/ComplianceCalendar'
+import BillingDashboard from './pages/BillingDashboard'
 
 export default function App() {
   return (
@@ -46,6 +47,9 @@ export default function App() {
       {/* Compliance routes - Phase 2 */}
       <Route path="/compliance/dashboard" element={<Layout><ComplianceDashboard /></Layout>} />
       <Route path="/compliance" element={<Layout><ComplianceCalendar /></Layout>} />
+      
+      {/* Billing routes - Phase 3 */}
+      <Route path="/billing" element={<Layout><BillingDashboard /></Layout>} />
     </Routes>
   )
 }
