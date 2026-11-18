@@ -314,3 +314,77 @@ class ActivityType(str, enum.Enum):
     documentation = "documentation"
     travel = "travel"
     other = "other"
+
+
+# ============================================================================
+# PHASE 4 - AUDIT & ACCOUNTING ENUMS
+# ============================================================================
+
+class EngagementType(str, enum.Enum):
+    """Audit engagement types"""
+    statutory_audit = "statutory_audit"
+    tax_audit = "tax_audit"
+    internal_audit = "internal_audit"
+    review = "review"
+    agreed_upon_procedures = "agreed_upon_procedures"
+
+
+class EngagementStatus(str, enum.Enum):
+    """Audit engagement status"""
+    planning = "planning"
+    fieldwork = "fieldwork"
+    review = "review"
+    reporting = "reporting"
+    completed = "completed"
+    archived = "archived"
+
+
+class WorkingPaperStatus(str, enum.Enum):
+    """Working paper status"""
+    draft = "draft"
+    in_progress = "in_progress"
+    review = "review"
+    approved = "approved"
+
+
+class RiskRating(str, enum.Enum):
+    """Risk rating levels"""
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class PBCStatus(str, enum.Enum):
+    """PBC item status"""
+    pending = "pending"
+    requested = "requested"
+    received = "received"
+    reviewed = "reviewed"
+    accepted = "accepted"
+    rejected = "rejected"
+
+
+class ReviewNoteStatus(str, enum.Enum):
+    """Review note status"""
+    open = "open"
+    addressed = "addressed"
+    cleared = "cleared"
+    deferred = "deferred"
+
+
+class ImportType(str, enum.Enum):
+    """Accounting import types"""
+    trial_balance = "trial_balance"
+    ledger = "ledger"
+    bank_statement = "bank_statement"
+    gst = "gst"
+    tds = "tds"
+
+
+class AccountGroup(str, enum.Enum):
+    """Account groups"""
+    assets = "assets"
+    liabilities = "liabilities"
+    equity = "equity"
+    income = "income"
+    expenses = "expenses"
