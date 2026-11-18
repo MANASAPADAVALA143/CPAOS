@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analytics, assignments, auth, checklist, clients, compliance, documents, firms, portal, signature, voice
+from app.api.routes import analytics, assignments, auth, billing, checklist, clients, compliance, documents, firms, portal, signature, voice
 from app.db import init_db
 from app.services.reminder_engine import run_daily_reminders
 
@@ -45,6 +45,7 @@ app.include_router(firms.router, prefix="/api", tags=["firms"])
 app.include_router(clients.router, prefix="/api", tags=["clients"])
 app.include_router(assignments.router, prefix="/api", tags=["assignments"])
 app.include_router(compliance.router, prefix="/api/compliance", tags=["compliance"])
+app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(checklist.router, prefix="/api", tags=["checklist"])
 app.include_router(portal.router, prefix="/api/portal", tags=["portal"])
