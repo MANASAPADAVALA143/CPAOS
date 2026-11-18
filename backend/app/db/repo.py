@@ -569,3 +569,296 @@ def count_pending_reviews(sb: Client, firm_id: uuid.UUID, review_level: str | No
     # we'd need to join with assignments table, but Supabase REST API
     # doesn't support count with joins easily. We'll handle this in the service layer.
     return int(r.count or 0)
+
+
+# ============================================================================
+# PHASE 2: COMPLIANCE CALENDAR REPOSITORY FUNCTIONS
+# ============================================================================
+
+def list_compliance_templates(
+    sb: Client,
+    firm_id: uuid.UUID | None = None,
+    country: str | None = None,
+    service_category: str | None = None,
+    is_active: bool = True,
+) -> list[dict[str, Any]]:
+    """List compliance templates with filters"""
+    q = sb.table("compliance_templates").select("*")
+    
+    if firm_id:
+        # Include both firm-specific and system templates
+        q = q.or_(f"firm_id.eq.{firm_id},firm_id.is.null")
+    else:
+        # Only system templates
+        q = q.is_("firm_id", "null")
+    
+    if country:
+        q = q.eq("country", country)
+    
+    if service_category:
+        q = q.eq("service_category", service_category)
+    
+    if is_active:
+        q = q.eq("is_active", True)
+    
+    q = q.order("country", desc=False).order("service_category", desc=False)
+    r = q.execute()
+    return r.data or []
+
+
+def compliance_template_by_id(sb: Client, template_id: uuid.UUID) -> dict[str, Any] | None:
+    """Get compliance template by ID"""
+    r = sb.table("compliance_templates").select("*").eq("id", str(template_id)).limit(1).execute()
+    return r.data[0] if r.data else None
+
+
+def create_compliance_template(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a compliance template"""
+    r = sb.table("compliance_templates").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def update_compliance_template(sb: Client, template_id: uuid.UUID, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Update a compliance template"""
+    data["updated_at"] = utc_now_iso()
+    r = sb.table("compliance_templates").update(data).eq("id", str(template_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def list_compliance_requirements(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: uuid.UUID | None = None,
+    status: str | None = None,
+    service_category: str | None = None,
+    financial_year: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """List compliance requirements with filters"""
+    q = (
+        sb.table("compliance_requirements")
+        .select("""
+            *,
+            clients!compliance_requirements_client_id_fkey(company_name),
+            firm_users!compliance_requirements_assigned_to_fkey(full_name),
+            compliance_templates!compliance_requirements_template_id_fkey(compliance_code)
+        """)
+        .eq("firm_id", str(firm_id))
+    )
+    
+    if client_id:
+        q = q.eq("client_id", str(client_id))
+    
+    if status:
+        q = q.eq("status", status)
+    
+    if service_category:
+        q = q.eq("service_category", service_category)
+    
+    if financial_year:
+        q = q.eq("financial_year", financial_year)
+    
+    if from_date:
+        q = q.gte("due_date", from_date)
+    
+    if to_date:
+        q = q.lte("due_date", to_date)
+    
+    q = q.order("due_date", desc=False).range(offset, offset + limit - 1)
+    r = q.execute()
+    return r.data or []
+
+
+def compliance_requirement_by_id(sb: Client, requirement_id: uuid.UUID, firm_id: uuid.UUID) -> dict[str, Any] | None:
+    """Get compliance requirement by ID with firm isolation"""
+    r = (
+        sb.table("compliance_requirements")
+        .select("""
+            *,
+            clients!compliance_requirements_client_id_fkey(company_name, country, entity_type),
+            firm_users!compliance_requirements_assigned_to_fkey(full_name, email),
+            compliance_templates!compliance_requirements_template_id_fkey(compliance_code, penalty_info, documents_required)
+        """)
+        .eq("id", str(requirement_id))
+        .eq("firm_id", str(firm_id))
+        .limit(1)
+        .execute()
+    )
+    return r.data[0] if r.data else None
+
+
+def create_compliance_requirement(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a compliance requirement"""
+    r = sb.table("compliance_requirements").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def update_compliance_requirement(sb: Client, requirement_id: uuid.UUID, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Update a compliance requirement"""
+    data["updated_at"] = utc_now_iso()
+    r = sb.table("compliance_requirements").update(data).eq("id", str(requirement_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def delete_compliance_requirement(sb: Client, requirement_id: uuid.UUID, firm_id: uuid.UUID) -> bool:
+    """Delete a compliance requirement (with firm isolation)"""
+    r = sb.table("compliance_requirements").delete().eq("id", str(requirement_id)).eq("firm_id", str(firm_id)).execute()
+    return bool(r.data)
+
+
+def count_compliance_requirements(
+    sb: Client,
+    firm_id: uuid.UUID,
+    status: str | None = None,
+    client_id: uuid.UUID | None = None,
+) -> int:
+    """Count compliance requirements with filters"""
+    q = sb.table("compliance_requirements").select("id", count="exact").eq("firm_id", str(firm_id))
+    
+    if status:
+        q = q.eq("status", status)
+    
+    if client_id:
+        q = q.eq("client_id", str(client_id))
+    
+    r = q.execute()
+    return int(r.count or 0)
+
+
+def list_compliance_reminders(
+    sb: Client,
+    firm_id: uuid.UUID,
+    template_id: uuid.UUID | None = None,
+    is_active: bool = True,
+) -> list[dict[str, Any]]:
+    """List compliance reminders"""
+    q = sb.table("compliance_reminders").select("*").eq("firm_id", str(firm_id))
+    
+    if template_id:
+        q = q.eq("template_id", str(template_id))
+    
+    if is_active:
+        q = q.eq("is_active", True)
+    
+    q = q.order("days_before_due", desc=True)
+    r = q.execute()
+    return r.data or []
+
+
+def create_compliance_reminder(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a compliance reminder"""
+    r = sb.table("compliance_reminders").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def list_compliance_alerts(
+    sb: Client,
+    firm_id: uuid.UUID,
+    recipient_id: uuid.UUID | None = None,
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """List compliance alerts"""
+    q = (
+        sb.table("compliance_alerts")
+        .select("""
+            *,
+            compliance_requirements!compliance_alerts_requirement_id_fkey(compliance_name, due_date, clients!compliance_requirements_client_id_fkey(company_name)),
+            firm_users!compliance_alerts_recipient_id_fkey(full_name)
+        """)
+        .eq("firm_id", str(firm_id))
+    )
+    
+    if recipient_id:
+        q = q.eq("recipient_id", str(recipient_id))
+    
+    if unread_only:
+        q = q.is_("read_at", "null")
+    
+    q = q.order("sent_at", desc=True).range(offset, offset + limit - 1)
+    r = q.execute()
+    return r.data or []
+
+
+def create_compliance_alert(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a compliance alert"""
+    r = sb.table("compliance_alerts").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def mark_alert_as_read(sb: Client, alert_id: uuid.UUID) -> dict[str, Any] | None:
+    """Mark alert as read"""
+    r = sb.table("compliance_alerts").update({"read_at": utc_now_iso()}).eq("id", str(alert_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def dismiss_alert(sb: Client, alert_id: uuid.UUID) -> dict[str, Any] | None:
+    """Dismiss an alert"""
+    r = sb.table("compliance_alerts").update({"dismissed_at": utc_now_iso()}).eq("id", str(alert_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def list_document_requirements(
+    sb: Client,
+    firm_id: uuid.UUID,
+    requirement_id: uuid.UUID,
+) -> list[dict[str, Any]]:
+    """List document requirements for a compliance requirement"""
+    r = (
+        sb.table("document_requirements")
+        .select("""
+            *,
+            documents!document_requirements_document_id_fkey(filename, original_filename, uploaded_at),
+            firm_users!document_requirements_verified_by_fkey(full_name)
+        """)
+        .eq("firm_id", str(firm_id))
+        .eq("requirement_id", str(requirement_id))
+        .order("is_mandatory", desc=True)
+        .execute()
+    )
+    return r.data or []
+
+
+def create_document_requirement(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a document requirement"""
+    r = sb.table("document_requirements").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def update_document_requirement(sb: Client, requirement_id: uuid.UUID, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Update a document requirement"""
+    r = sb.table("document_requirements").update(data).eq("id", str(requirement_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def count_overdue_compliance(sb: Client, firm_id: uuid.UUID, today: str) -> int:
+    """Count overdue compliance requirements"""
+    r = (
+        sb.table("compliance_requirements")
+        .select("id", count="exact")
+        .eq("firm_id", str(firm_id))
+        .lt("due_date", today)
+        .neq("status", "completed")
+        .neq("status", "not_applicable")
+        .execute()
+    )
+    return int(r.count or 0)
+
+
+def count_due_soon(sb: Client, firm_id: uuid.UUID, from_date: str, to_date: str) -> int:
+    """Count compliance requirements due within date range"""
+    r = (
+        sb.table("compliance_requirements")
+        .select("id", count="exact")
+        .eq("firm_id", str(firm_id))
+        .gte("due_date", from_date)
+        .lte("due_date", to_date)
+        .neq("status", "completed")
+        .neq("status", "not_applicable")
+        .execute()
+    )
+    return int(r.count or 0)

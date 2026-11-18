@@ -1,16 +1,22 @@
 from app.models.enums import (
+    AlertSeverity,
+    AlertType,
     AssignmentPriority,
     AssignmentStatus,
     ChecklistItemStatus,
     ClientCategory,
     ClientStatus,
+    ComplianceFrequency,
+    ComplianceStatus,
     Country,
+    DocumentRequirementStatus,
     DocumentReviewStatus,
     EntityType,
     FirmUserRole,
     MessageChannel,
     MessageDeliveryStatus,
     Plan,
+    ReminderType,
     ReviewLevel,
     ReviewStatus,
     RiskClassification,
@@ -18,6 +24,14 @@ from app.models.enums import (
 )
 from app.models.staff import FirmUser
 from app.models.assignment import Assignment, AssignmentReview
+from app.models.compliance import (
+    ComplianceAlert,
+    ComplianceDashboardStats,
+    ComplianceReminder,
+    ComplianceRequirement,
+    ComplianceTemplate,
+    DocumentRequirement,
+)
 
 __all__ = [
     "Plan",
@@ -30,7 +44,7 @@ __all__ = [
     "MessageChannel",
     "MessageDeliveryStatus",
     "FirmUser",
-    # CA Practice OS additions
+    # CA Practice OS - Phase 1
     "ServiceCategory",
     "AssignmentStatus",
     "AssignmentPriority",
@@ -40,4 +54,17 @@ __all__ = [
     "RiskClassification",
     "Assignment",
     "AssignmentReview",
+    # Phase 2 - Compliance
+    "ComplianceFrequency",
+    "ComplianceStatus",
+    "ReminderType",
+    "AlertType",
+    "AlertSeverity",
+    "DocumentRequirementStatus",
+    "ComplianceTemplate",
+    "ComplianceRequirement",
+    "ComplianceReminder",
+    "ComplianceAlert",
+    "DocumentRequirement",
+    "ComplianceDashboardStats",
 ]

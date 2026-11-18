@@ -181,3 +181,57 @@ class RiskClassification(str, enum.Enum):
     low = "Low"
     medium = "Medium"
     high = "High"
+
+
+# ============================================================================
+# PHASE 2 - COMPLIANCE CALENDAR ENUMS
+# ============================================================================
+
+class ComplianceFrequency(str, enum.Enum):
+    """Compliance frequency types"""
+    monthly = "monthly"
+    quarterly = "quarterly"
+    half_yearly = "half_yearly"
+    annual = "annual"
+    event_based = "event_based"
+
+
+class ComplianceStatus(str, enum.Enum):
+    """Compliance requirement status"""
+    pending = "pending"
+    in_progress = "in_progress"
+    completed = "completed"
+    overdue = "overdue"
+    not_applicable = "not_applicable"
+
+
+class ReminderType(str, enum.Enum):
+    """Reminder/notification types"""
+    notification = "notification"
+    email = "email"
+    whatsapp = "whatsapp"
+    escalation = "escalation"
+
+
+class AlertType(str, enum.Enum):
+    """Alert types"""
+    reminder = "reminder"
+    overdue = "overdue"
+    escalation = "escalation"
+    completed = "completed"
+    due_soon = "due_soon"
+
+
+class AlertSeverity(str, enum.Enum):
+    """Alert severity levels"""
+    info = "info"
+    warning = "warning"
+    critical = "critical"
+
+
+class DocumentRequirementStatus(str, enum.Enum):
+    """Document requirement status"""
+    pending = "pending"
+    uploaded = "uploaded"
+    verified = "verified"
+    rejected = "rejected"
