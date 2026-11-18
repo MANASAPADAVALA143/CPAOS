@@ -1,8 +1,11 @@
 from app.models.enums import (
+    ActivityType,
+    AgreementType,
     AlertSeverity,
     AlertType,
     AssignmentPriority,
     AssignmentStatus,
+    BillingFrequency,
     ChecklistItemStatus,
     ClientCategory,
     ClientStatus,
@@ -13,14 +16,19 @@ from app.models.enums import (
     DocumentReviewStatus,
     EntityType,
     FirmUserRole,
+    InvoiceStatus,
+    InvoiceType,
     MessageChannel,
     MessageDeliveryStatus,
+    PaymentMethod,
+    PaymentStatus,
     Plan,
     ReminderType,
     ReviewLevel,
     ReviewStatus,
     RiskClassification,
     ServiceCategory,
+    TimesheetStatus,
 )
 from app.models.staff import FirmUser
 from app.models.assignment import Assignment, AssignmentReview
@@ -31,6 +39,17 @@ from app.models.compliance import (
     ComplianceRequirement,
     ComplianceTemplate,
     DocumentRequirement,
+)
+from app.models.billing import (
+    BillingDashboardStats,
+    ClientProfitability,
+    FeeAgreement,
+    Invoice,
+    InvoiceItem,
+    Payment,
+    ReceivablesAgeing,
+    Timesheet,
+    TimesheetEntry,
 )
 
 __all__ = [
@@ -67,4 +86,22 @@ __all__ = [
     "ComplianceAlert",
     "DocumentRequirement",
     "ComplianceDashboardStats",
+    # Phase 3 - Billing
+    "AgreementType",
+    "BillingFrequency",
+    "InvoiceType",
+    "InvoiceStatus",
+    "PaymentMethod",
+    "PaymentStatus",
+    "TimesheetStatus",
+    "ActivityType",
+    "FeeAgreement",
+    "Invoice",
+    "InvoiceItem",
+    "Payment",
+    "Timesheet",
+    "TimesheetEntry",
+    "BillingDashboardStats",
+    "ReceivablesAgeing",
+    "ClientProfitability",
 ]

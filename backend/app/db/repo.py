@@ -862,3 +862,230 @@ def count_due_soon(sb: Client, firm_id: uuid.UUID, from_date: str, to_date: str)
         .execute()
     )
     return int(r.count or 0)
+
+
+# ============================================================================
+# PHASE 3: BILLING & INVOICING REPOSITORY FUNCTIONS
+# ============================================================================
+
+def generate_invoice_number(sb: Client, firm_id: uuid.UUID) -> str:
+    """Generate next invoice number for firm (INV-2024-0001)"""
+    # Get current year
+    from datetime import datetime
+    year = datetime.now().year
+    
+    # Count invoices this year for this firm
+    r = (
+        sb.table("invoices")
+        .select("invoice_number", count="exact")
+        .eq("firm_id", str(firm_id))
+        .like("invoice_number", f"INV-{year}-%")
+        .execute()
+    )
+    count = int(r.count or 0)
+    next_num = count + 1
+    return f"INV-{year}-{next_num:04d}"
+
+
+def list_invoices(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: uuid.UUID | None = None,
+    status: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """List invoices with filters"""
+    q = (
+        sb.table("invoices")
+        .select("*, clients!invoices_client_id_fkey(company_name)")
+        .eq("firm_id", str(firm_id))
+    )
+    
+    if client_id:
+        q = q.eq("client_id", str(client_id))
+    if status:
+        q = q.eq("status", status)
+    if from_date:
+        q = q.gte("invoice_date", from_date)
+    if to_date:
+        q = q.lte("invoice_date", to_date)
+    
+    q = q.order("invoice_date", desc=True).range(offset, offset + limit - 1)
+    r = q.execute()
+    return r.data or []
+
+
+def invoice_by_id(sb: Client, invoice_id: uuid.UUID, firm_id: uuid.UUID) -> dict[str, Any] | None:
+    """Get invoice by ID with firm isolation"""
+    r = (
+        sb.table("invoices")
+        .select("*, clients!invoices_client_id_fkey(company_name, email, country)")
+        .eq("id", str(invoice_id))
+        .eq("firm_id", str(firm_id))
+        .limit(1)
+        .execute()
+    )
+    return r.data[0] if r.data else None
+
+
+def create_invoice(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create an invoice"""
+    r = sb.table("invoices").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def update_invoice(sb: Client, invoice_id: uuid.UUID, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Update an invoice"""
+    data["updated_at"] = utc_now_iso()
+    r = sb.table("invoices").update(data).eq("id", str(invoice_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def list_invoice_items(sb: Client, invoice_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Get invoice items"""
+    r = (
+        sb.table("invoice_items")
+        .select("*")
+        .eq("invoice_id", str(invoice_id))
+        .order("sort_order", desc=False)
+        .execute()
+    )
+    return r.data or []
+
+
+def create_invoice_item(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create an invoice item"""
+    r = sb.table("invoice_items").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def list_payments(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: uuid.UUID | None = None,
+    invoice_id: uuid.UUID | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """List payments"""
+    q = (
+        sb.table("payments")
+        .select("*, clients!payments_client_id_fkey(company_name), invoices!payments_invoice_id_fkey(invoice_number)")
+        .eq("firm_id", str(firm_id))
+    )
+    
+    if client_id:
+        q = q.eq("client_id", str(client_id))
+    if invoice_id:
+        q = q.eq("invoice_id", str(invoice_id))
+    
+    q = q.order("payment_date", desc=True).limit(limit)
+    r = q.execute()
+    return r.data or []
+
+
+def create_payment(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a payment record"""
+    r = sb.table("payments").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def list_timesheet_entries(
+    sb: Client,
+    firm_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    is_billable: bool | None = None,
+    is_invoiced: bool | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """List timesheet entries"""
+    q = (
+        sb.table("timesheet_entries")
+        .select("""
+            *,
+            clients!timesheet_entries_client_id_fkey(company_name),
+            assignments!timesheet_entries_assignment_id_fkey(assignment_name),
+            firm_users!timesheet_entries_user_id_fkey(full_name)
+        """)
+        .eq("firm_id", str(firm_id))
+    )
+    
+    if user_id:
+        q = q.eq("user_id", str(user_id))
+    if from_date:
+        q = q.gte("entry_date", from_date)
+    if to_date:
+        q = q.lte("entry_date", to_date)
+    if is_billable is not None:
+        q = q.eq("is_billable", is_billable)
+    if is_invoiced is not None:
+        q = q.eq("is_invoiced", is_invoiced)
+    
+    q = q.order("entry_date", desc=True).limit(limit)
+    r = q.execute()
+    return r.data or []
+
+
+def create_timesheet_entry(sb: Client, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a timesheet entry"""
+    r = sb.table("timesheet_entries").insert(data).execute()
+    return r.data[0] if r.data else None
+
+
+def get_billing_dashboard_stats(sb: Client, firm_id: uuid.UUID) -> dict[str, Any]:
+    """Get billing dashboard statistics"""
+    from datetime import date, timedelta
+    today = date.today()
+    first_of_month = date(today.year, today.month, 1)
+    
+    # Total revenue (all paid invoices)
+    r_revenue = (
+        sb.table("invoices")
+        .select("total_amount", count="exact")
+        .eq("firm_id", str(firm_id))
+        .eq("status", "paid")
+        .execute()
+    )
+    total_revenue = sum(float(inv.get("total_amount", 0)) for inv in (r_revenue.data or []))
+    
+    # Revenue this month
+    r_month = (
+        sb.table("invoices")
+        .select("total_amount")
+        .eq("firm_id", str(firm_id))
+        .gte("paid_at", first_of_month.isoformat())
+        .eq("status", "paid")
+        .execute()
+    )
+    revenue_this_month = sum(float(inv.get("total_amount", 0)) for inv in (r_month.data or []))
+    
+    # Outstanding amount
+    r_outstanding = (
+        sb.table("invoices")
+        .select("balance_due")
+        .eq("firm_id", str(firm_id))
+        .in_("status", ["sent", "viewed", "partially_paid", "overdue"])
+        .execute()
+    )
+    outstanding = sum(float(inv.get("balance_due", 0)) for inv in (r_outstanding.data or []))
+    
+    # Overdue
+    r_overdue = (
+        sb.table("invoices")
+        .select("balance_due")
+        .eq("firm_id", str(firm_id))
+        .eq("status", "overdue")
+        .execute()
+    )
+    overdue = sum(float(inv.get("balance_due", 0)) for inv in (r_overdue.data or []))
+    
+    return {
+        "total_revenue": total_revenue,
+        "revenue_this_month": revenue_this_month,
+        "outstanding_amount": outstanding,
+        "overdue_amount": overdue,
+    }

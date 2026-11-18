@@ -235,3 +235,82 @@ class DocumentRequirementStatus(str, enum.Enum):
     uploaded = "uploaded"
     verified = "verified"
     rejected = "rejected"
+
+
+# ============================================================================
+# PHASE 3 - BILLING & INVOICING ENUMS
+# ============================================================================
+
+class AgreementType(str, enum.Enum):
+    """Fee agreement types"""
+    fixed_monthly = "fixed_monthly"
+    hourly = "hourly"
+    project_based = "project_based"
+    annual_retainer = "annual_retainer"
+
+
+class BillingFrequency(str, enum.Enum):
+    """Billing frequency"""
+    monthly = "monthly"
+    quarterly = "quarterly"
+    annual = "annual"
+    one_time = "one_time"
+
+
+class InvoiceType(str, enum.Enum):
+    """Invoice types"""
+    standard = "standard"
+    recurring = "recurring"
+    advance = "advance"
+    credit_note = "credit_note"
+
+
+class InvoiceStatus(str, enum.Enum):
+    """Invoice status"""
+    draft = "draft"
+    sent = "sent"
+    viewed = "viewed"
+    partially_paid = "partially_paid"
+    paid = "paid"
+    overdue = "overdue"
+    cancelled = "cancelled"
+
+
+class PaymentMethod(str, enum.Enum):
+    """Payment methods"""
+    bank_transfer = "bank_transfer"
+    cheque = "cheque"
+    cash = "cash"
+    card = "card"
+    upi = "upi"
+    online = "online"
+
+
+class PaymentStatus(str, enum.Enum):
+    """Payment status"""
+    pending = "pending"
+    received = "received"
+    cleared = "cleared"
+    bounced = "bounced"
+    refunded = "refunded"
+
+
+class TimesheetStatus(str, enum.Enum):
+    """Timesheet status"""
+    draft = "draft"
+    submitted = "submitted"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class ActivityType(str, enum.Enum):
+    """Time entry activity types"""
+    research = "research"
+    preparation = "preparation"
+    filing = "filing"
+    client_meeting = "client_meeting"
+    internal_meeting = "internal_meeting"
+    review = "review"
+    documentation = "documentation"
+    travel = "travel"
+    other = "other"
