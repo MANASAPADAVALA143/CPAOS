@@ -13,6 +13,9 @@ from supabase import Client
 from app.api.deps import get_current_user, get_supabase
 from app.models import FirmUser
 from app.db import repo
+from app.services.pdf_generator import pdf_generator
+from app.services.email_service import email_service
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -388,3 +391,51 @@ async def update_review_note(
     
     note = repo.update_review_note(sb, note_id, current.firm_id, payload)
     return {"review_note": note}
+
+
+# ============================================================================
+# EXPORT ENDPOINTS
+# ============================================================================
+
+@router.get("/engagements/{engagement_id}/export/pdf")
+async def export_engagement_pdf(
+    engagement_id: UUID,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export audit engagement as PDF report"""
+    # Get engagement
+    engagement = repo.audit_engagement_by_id(sb, engagement_id, current.firm_id)
+    if not engagement:
+        raise HTTPException(status_code=404, detail="Engagement not found")
+    
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", engagement["client_id"]).single().execute()
+    client = client_res.data
+    
+    # Get firm
+    firm_res = sb.table("firms").select("*").eq("id", str(current.firm_id)).single().execute()
+    firm = firm_res.data
+    
+    # Get related data
+    working_papers = repo.list_working_papers(sb, engagement_id, current.firm_id)
+    pbc_items = repo.list_pbc_items(sb, engagement_id, current.firm_id)
+    risk_assessments = repo.list_risk_assessments(sb, engagement_id, current.firm_id)
+    
+    # Generate PDF
+    pdf_buffer = pdf_generator.generate_audit_engagement_report(
+        engagement=engagement,
+        client=client,
+        firm=firm,
+        working_papers=working_papers,
+        pbc_items=pbc_items,
+        risk_assessments=risk_assessments,
+    )
+    
+    # Return as download
+    filename = f"Audit_Engagement_{engagement['engagement_code']}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

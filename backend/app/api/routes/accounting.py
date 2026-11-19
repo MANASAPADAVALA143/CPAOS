@@ -16,6 +16,9 @@ import csv
 from app.api.deps import get_current_user, get_supabase
 from app.models import FirmUser
 from app.db import repo
+from app.services.pdf_generator import pdf_generator
+from app.services.excel_exporter import excel_exporter
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -420,3 +423,164 @@ async def create_tds_reconciliation(
     }
     reco = repo.create_tds_reconciliation(sb, current.firm_id, payload)
     return {"reconciliation": reco}
+
+
+# ============================================================================
+# EXPORT ENDPOINTS
+# ============================================================================
+
+@router.get("/trial-balance/export/pdf")
+async def export_trial_balance_pdf(
+    client_id: UUID,
+    period_date: str,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export trial balance as PDF"""
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", str(client_id)).single().execute()
+    client = client_res.data
+    
+    # Get firm
+    firm_res = sb.table("firms").select("*").eq("id", str(current.firm_id)).single().execute()
+    firm = firm_res.data
+    
+    # Get entries
+    entries = repo.list_trial_balance(sb, current.firm_id, client_id, period_date)
+    
+    # Generate PDF
+    pdf_buffer = pdf_generator.generate_trial_balance_pdf(
+        client=client,
+        firm=firm,
+        entries=entries,
+        period_date=period_date,
+    )
+    
+    filename = f"Trial_Balance_{client['name']}_{period_date}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get("/trial-balance/export/excel")
+async def export_trial_balance_excel(
+    client_id: UUID,
+    period_date: str,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export trial balance as Excel"""
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", str(client_id)).single().execute()
+    client = client_res.data
+    
+    # Get entries
+    entries = repo.list_trial_balance(sb, current.firm_id, client_id, period_date)
+    
+    # Generate Excel
+    excel_buffer = excel_exporter.export_trial_balance(
+        entries=entries,
+        client_name=client['name'],
+        period_date=period_date,
+    )
+    
+    filename = f"Trial_Balance_{client['name']}_{period_date}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get("/ledger/export/excel")
+async def export_ledger_excel(
+    client_id: UUID,
+    account_code: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export ledger as Excel"""
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", str(client_id)).single().execute()
+    client = client_res.data
+    
+    # Get entries
+    entries = repo.list_ledger_entries(sb, current.firm_id, client_id, account_code, start_date, end_date)
+    
+    # Generate Excel
+    excel_buffer = excel_exporter.export_ledger(
+        entries=entries,
+        client_name=client['name'],
+        account_code=account_code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    
+    filename = f"Ledger_{client['name']}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get("/gst-reconciliation/export/excel")
+async def export_gst_reconciliation_excel(
+    client_id: UUID,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export GST reconciliation as Excel"""
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", str(client_id)).single().execute()
+    client = client_res.data
+    
+    # Get reconciliations
+    query = sb.table("gst_reconciliation").select("*").eq("firm_id", str(current.firm_id)).eq("client_id", str(client_id))
+    r = query.execute()
+    
+    # Generate Excel
+    excel_buffer = excel_exporter.export_gst_reconciliation(
+        reconciliations=r.data or [],
+        client_name=client['name'],
+    )
+    
+    filename = f"GST_Reconciliation_{client['name']}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get("/bank-reconciliation/export/excel")
+async def export_bank_reconciliation_excel(
+    client_id: UUID,
+    current: FirmUser = Depends(get_current_user),
+    sb: Client = Depends(get_supabase),
+):
+    """Export bank reconciliation as Excel"""
+    # Get client
+    client_res = sb.table("clients").select("*").eq("id", str(client_id)).single().execute()
+    client = client_res.data
+    
+    # Get reconciliations
+    query = sb.table("bank_reconciliation").select("*").eq("firm_id", str(current.firm_id)).eq("client_id", str(client_id))
+    r = query.execute()
+    
+    # Generate Excel
+    excel_buffer = excel_exporter.export_bank_reconciliation(
+        reconciliations=r.data or [],
+        client_name=client['name'],
+    )
+    
+    filename = f"Bank_Reconciliation_{client['name']}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
