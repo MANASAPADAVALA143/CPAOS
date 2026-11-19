@@ -4,9 +4,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import accounting, analytics, assignments, audit, auth, billing, checklist, clients, compliance, documents, firms, portal, signature, voice
+from app.api.routes import accounting, analytics, assignments, audit, auth, automation, billing, checklist, clients, compliance, documents, firms, portal, signature, voice
 from app.db import init_db
 from app.services.reminder_engine import run_daily_reminders
+from app.services.workflow_engine import workflow_engine
 
 app = FastAPI(title="CPAOS - AI Client Onboarding Engine", version="2.0.0")
 
@@ -48,6 +49,7 @@ app.include_router(compliance.router, prefix="/api/compliance", tags=["complianc
 app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(accounting.router, prefix="/api/accounting", tags=["accounting"])
+app.include_router(automation.router, prefix="/api/automation", tags=["automation"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(checklist.router, prefix="/api", tags=["checklist"])
 app.include_router(portal.router, prefix="/api/portal", tags=["portal"])
