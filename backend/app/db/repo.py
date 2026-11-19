@@ -1089,3 +1089,498 @@ def get_billing_dashboard_stats(sb: Client, firm_id: uuid.UUID) -> dict[str, Any
         "outstanding_amount": outstanding,
         "overdue_amount": overdue,
     }
+
+
+# ============================================================================
+# PHASE 4: AUDIT ENGAGEMENT MANAGEMENT
+# ============================================================================
+
+def list_audit_engagements(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: Optional[uuid.UUID] = None,
+    status: Optional[str] = None,
+    financial_year: Optional[str] = None,
+    engagement_type: Optional[str] = None,
+) -> list[dict]:
+    """List audit engagements with filters"""
+    query = sb.table("audit_engagements").select("*").eq("firm_id", str(firm_id))
+    
+    if client_id:
+        query = query.eq("client_id", str(client_id))
+    if status:
+        query = query.eq("status", status)
+    if financial_year:
+        query = query.eq("financial_year", financial_year)
+    if engagement_type:
+        query = query.eq("engagement_type", engagement_type)
+    
+    query = query.order("created_at", desc=True)
+    r = query.execute()
+    return r.data or []
+
+
+def audit_engagement_by_id(sb: Client, engagement_id: uuid.UUID, firm_id: uuid.UUID) -> Optional[dict]:
+    """Get audit engagement by ID"""
+    r = (
+        sb.table("audit_engagements")
+        .select("*")
+        .eq("id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+        .maybe_single()
+        .execute()
+    )
+    return r.data
+
+
+def create_audit_engagement(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create audit engagement"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("audit_engagements").insert(payload).execute()
+    return r.data[0]
+
+
+def update_audit_engagement(sb: Client, engagement_id: uuid.UUID, firm_id: uuid.UUID, data: dict) -> dict:
+    """Update audit engagement"""
+    payload = {**data, "updated_at": datetime.utcnow().isoformat()}
+    r = (
+        sb.table("audit_engagements")
+        .update(payload)
+        .eq("id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    return r.data[0]
+
+
+# Working Papers
+def list_working_papers(sb: Client, engagement_id: uuid.UUID, firm_id: uuid.UUID) -> list[dict]:
+    """List working papers for engagement"""
+    r = (
+        sb.table("working_papers")
+        .select("*")
+        .eq("engagement_id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+        .order("reference_number")
+        .execute()
+    )
+    return r.data or []
+
+
+def create_working_paper(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create working paper"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("working_papers").insert(payload).execute()
+    return r.data[0]
+
+
+def update_working_paper(sb: Client, wp_id: uuid.UUID, firm_id: uuid.UUID, data: dict) -> dict:
+    """Update working paper"""
+    payload = {**data, "updated_at": datetime.utcnow().isoformat()}
+    r = (
+        sb.table("working_papers")
+        .update(payload)
+        .eq("id", str(wp_id))
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    return r.data[0]
+
+
+# PBC Checklists
+def list_pbc_items(sb: Client, engagement_id: uuid.UUID, firm_id: uuid.UUID) -> list[dict]:
+    """List PBC items"""
+    r = (
+        sb.table("pbc_checklists")
+        .select("*")
+        .eq("engagement_id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+        .order("created_at")
+        .execute()
+    )
+    return r.data or []
+
+
+def create_pbc_item(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create PBC item"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("pbc_checklists").insert(payload).execute()
+    return r.data[0]
+
+
+def update_pbc_item(sb: Client, pbc_id: uuid.UUID, firm_id: uuid.UUID, data: dict) -> dict:
+    """Update PBC item"""
+    payload = {**data, "updated_at": datetime.utcnow().isoformat()}
+    r = (
+        sb.table("pbc_checklists")
+        .update(payload)
+        .eq("id", str(pbc_id))
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    return r.data[0]
+
+
+# Risk Assessments
+def list_risk_assessments(sb: Client, engagement_id: uuid.UUID, firm_id: uuid.UUID) -> list[dict]:
+    """List risk assessments"""
+    r = (
+        sb.table("risk_assessments")
+        .select("*")
+        .eq("engagement_id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+        .order("created_at")
+        .execute()
+    )
+    return r.data or []
+
+
+def create_risk_assessment(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create risk assessment"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("risk_assessments").insert(payload).execute()
+    return r.data[0]
+
+
+# Review Notes
+def list_review_notes(
+    sb: Client, 
+    engagement_id: uuid.UUID, 
+    firm_id: uuid.UUID,
+    status: Optional[str] = None
+) -> list[dict]:
+    """List review notes"""
+    query = (
+        sb.table("review_notes")
+        .select("*")
+        .eq("engagement_id", str(engagement_id))
+        .eq("firm_id", str(firm_id))
+    )
+    if status:
+        query = query.eq("status", status)
+    query = query.order("created_at", desc=True)
+    r = query.execute()
+    return r.data or []
+
+
+def create_review_note(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create review note"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("review_notes").insert(payload).execute()
+    return r.data[0]
+
+
+def update_review_note(sb: Client, note_id: uuid.UUID, firm_id: uuid.UUID, data: dict) -> dict:
+    """Update review note"""
+    payload = {**data, "updated_at": datetime.utcnow().isoformat()}
+    r = (
+        sb.table("review_notes")
+        .update(payload)
+        .eq("id", str(note_id))
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    return r.data[0]
+
+
+# Audit Dashboard Stats
+def get_audit_dashboard_stats(sb: Client, firm_id: uuid.UUID) -> dict:
+    """Get audit dashboard statistics"""
+    from collections import Counter
+    
+    # Get all engagements
+    engagements = (
+        sb.table("audit_engagements")
+        .select("status")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    
+    status_counts = Counter(e.get("status") for e in (engagements.data or []))
+    active_statuses = ["planning", "fieldwork", "review", "reporting"]
+    
+    # Working papers
+    wps = (
+        sb.table("working_papers")
+        .select("status")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    wp_counts = Counter(wp.get("status") for wp in (wps.data or []))
+    
+    # PBC items
+    pbc = (
+        sb.table("pbc_checklists")
+        .select("status")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    pbc_counts = Counter(p.get("status") for p in (pbc.data or []))
+    
+    # Review notes
+    notes = (
+        sb.table("review_notes")
+        .select("status")
+        .eq("firm_id", str(firm_id))
+        .eq("status", "open")
+        .execute()
+    )
+    
+    # High risk areas
+    high_risks = (
+        sb.table("risk_assessments")
+        .select("id", count="exact")
+        .eq("firm_id", str(firm_id))
+        .eq("overall_risk", "high")
+        .execute()
+    )
+    
+    return {
+        "total_engagements": len(engagements.data or []),
+        "active_engagements": sum(status_counts[s] for s in active_statuses),
+        "planning_phase": status_counts.get("planning", 0),
+        "fieldwork_phase": status_counts.get("fieldwork", 0),
+        "review_phase": status_counts.get("review", 0),
+        "reporting_phase": status_counts.get("reporting", 0),
+        "completed": status_counts.get("completed", 0),
+        "total_working_papers": len(wps.data or []),
+        "draft_papers": wp_counts.get("draft", 0),
+        "approved_papers": wp_counts.get("approved", 0),
+        "total_pbc_items": len(pbc.data or []),
+        "pending_pbc": pbc_counts.get("pending", 0),
+        "received_pbc": pbc_counts.get("received", 0),
+        "open_review_notes": len(notes.data or []),
+        "high_risk_areas": high_risks.count or 0,
+    }
+
+
+# ============================================================================
+# PHASE 4: ACCOUNTING WORKBENCH
+# ============================================================================
+
+def create_accounting_import(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create accounting import record"""
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("accounting_imports").insert(payload).execute()
+    return r.data[0]
+
+
+def list_trial_balance(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: Optional[uuid.UUID] = None,
+    period_date: Optional[str] = None,
+) -> list[dict]:
+    """List trial balance entries"""
+    query = sb.table("trial_balance").select("*").eq("firm_id", str(firm_id))
+    
+    if client_id:
+        query = query.eq("client_id", str(client_id))
+    if period_date:
+        query = query.eq("period_date", period_date)
+    
+    query = query.order("account_code")
+    r = query.execute()
+    return r.data or []
+
+
+def create_trial_balance_bulk(sb: Client, firm_id: uuid.UUID, entries: list[dict]) -> list[dict]:
+    """Bulk insert trial balance entries"""
+    payload = [
+        {**entry, "firm_id": str(firm_id), "created_at": datetime.utcnow().isoformat()}
+        for entry in entries
+    ]
+    r = sb.table("trial_balance").insert(payload).execute()
+    return r.data
+
+
+def list_ledger_entries(
+    sb: Client,
+    firm_id: uuid.UUID,
+    client_id: Optional[uuid.UUID] = None,
+    account_code: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> list[dict]:
+    """List ledger entries"""
+    query = sb.table("ledger_entries").select("*").eq("firm_id", str(firm_id))
+    
+    if client_id:
+        query = query.eq("client_id", str(client_id))
+    if account_code:
+        query = query.eq("account_code", account_code)
+    if start_date:
+        query = query.gte("entry_date", start_date)
+    if end_date:
+        query = query.lte("entry_date", end_date)
+    
+    query = query.order("entry_date", desc=True)
+    r = query.execute()
+    return r.data or []
+
+
+def create_bank_reconciliation(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create bank reconciliation"""
+    # Calculate adjusted balances
+    book_bal = float(data.get("book_balance", 0))
+    bank_bal = float(data.get("bank_balance", 0))
+    
+    cheques = float(data.get("cheques_issued_not_presented", 0))
+    deposits = float(data.get("deposits_not_cleared", 0))
+    charges = float(data.get("bank_charges", 0))
+    interest = float(data.get("interest_credited", 0))
+    other = float(data.get("other_adjustments", 0))
+    
+    adjusted_book = book_bal - charges + interest + other
+    adjusted_bank = bank_bal - cheques + deposits
+    difference = adjusted_book - adjusted_bank
+    
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "adjusted_book_balance": adjusted_book,
+        "adjusted_bank_balance": adjusted_bank,
+        "difference": difference,
+        "is_reconciled": abs(difference) < 0.01,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("bank_reconciliation").insert(payload).execute()
+    return r.data[0]
+
+
+def create_gst_reconciliation(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create GST reconciliation"""
+    # Calculate variances
+    books_total = float(data.get("books_total_gst", 0))
+    gstr3b_total = float(data.get("gstr3b_total_gst", 0))
+    
+    books_sales = float(data.get("books_taxable_sales", 0))
+    gstr3b_sales = float(data.get("gstr3b_taxable_sales", 0))
+    
+    variance_gst = books_total - gstr3b_total
+    variance_taxable = books_sales - gstr3b_sales
+    
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "variance_taxable": variance_taxable,
+        "variance_gst": variance_gst,
+        "is_reconciled": abs(variance_gst) < 0.01,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("gst_reconciliation").insert(payload).execute()
+    return r.data[0]
+
+
+def create_tds_reconciliation(sb: Client, firm_id: uuid.UUID, data: dict) -> dict:
+    """Create TDS reconciliation"""
+    books = float(data.get("books_tds_deposited", 0))
+    form26as = float(data.get("form26as_tds", 0))
+    variance = books - form26as
+    
+    payload = {
+        **data,
+        "firm_id": str(firm_id),
+        "variance_amount": variance,
+        "is_reconciled": abs(variance) < 0.01,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    r = sb.table("tds_reconciliation").insert(payload).execute()
+    return r.data[0]
+
+
+def get_accounting_dashboard_stats(sb: Client, firm_id: uuid.UUID) -> dict:
+    """Get accounting workbench dashboard stats"""
+    from collections import Counter
+    
+    # Imports
+    imports = (
+        sb.table("accounting_imports")
+        .select("status")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    import_counts = Counter(i.get("status") for i in (imports.data or []))
+    
+    # Trial balance
+    tb = (
+        sb.table("trial_balance")
+        .select("is_reconciled", count="exact")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    unreconciled = sum(1 for e in (tb.data or []) if not e.get("is_reconciled"))
+    
+    # Bank reco
+    banks = (
+        sb.table("bank_reconciliation")
+        .select("is_reconciled", count="exact")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    unreconciled_banks = sum(1 for b in (banks.data or []) if not b.get("is_reconciled"))
+    
+    # GST
+    gst = (
+        sb.table("gst_reconciliation")
+        .select("is_reconciled", "variance_gst")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    gst_variances = sum(1 for g in (gst.data or []) if not g.get("is_reconciled"))
+    
+    # TDS
+    tds = (
+        sb.table("tds_reconciliation")
+        .select("is_reconciled")
+        .eq("firm_id", str(firm_id))
+        .execute()
+    )
+    tds_variances = sum(1 for t in (tds.data or []) if not t.get("is_reconciled"))
+    
+    return {
+        "total_imports": len(imports.data or []),
+        "pending_imports": import_counts.get("processing", 0),
+        "completed_imports": import_counts.get("completed", 0),
+        "trial_balance_entries": tb.count or 0,
+        "unreconciled_accounts": unreconciled,
+        "bank_reconciliations": banks.count or 0,
+        "unreconciled_banks": unreconciled_banks,
+        "gst_reconciliations": len(gst.data or []),
+        "gst_variances": gst_variances,
+        "tds_reconciliations": len(tds.data or []),
+        "tds_variances": tds_variances,
+        "total_variance_amount": 0,  # Could calculate sum of all variances
+    }

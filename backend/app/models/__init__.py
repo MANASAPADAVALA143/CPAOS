@@ -1,4 +1,5 @@
 from app.models.enums import (
+    AccountGroup,
     ActivityType,
     AgreementType,
     AlertSeverity,
@@ -14,21 +15,28 @@ from app.models.enums import (
     Country,
     DocumentRequirementStatus,
     DocumentReviewStatus,
+    EngagementStatus,
+    EngagementType,
     EntityType,
     FirmUserRole,
+    ImportType,
     InvoiceStatus,
     InvoiceType,
     MessageChannel,
     MessageDeliveryStatus,
+    PBCStatus,
     PaymentMethod,
     PaymentStatus,
     Plan,
     ReminderType,
     ReviewLevel,
+    ReviewNoteStatus,
     ReviewStatus,
     RiskClassification,
+    RiskRating,
     ServiceCategory,
     TimesheetStatus,
+    WorkingPaperStatus,
 )
 from app.models.staff import FirmUser
 from app.models.assignment import Assignment, AssignmentReview
@@ -50,6 +58,23 @@ from app.models.billing import (
     ReceivablesAgeing,
     Timesheet,
     TimesheetEntry,
+)
+from app.models.audit import (
+    AuditDashboardStats,
+    AuditEngagement,
+    PBCChecklistItem,
+    ReviewNote,
+    RiskAssessment,
+    WorkingPaper,
+)
+from app.models.accounting import (
+    AccountingDashboardStats,
+    AccountingImport,
+    BankReconciliation,
+    GSTReconciliation,
+    LedgerEntry,
+    TDSReconciliation,
+    TrialBalanceEntry,
 )
 
 __all__ = [
@@ -104,4 +129,26 @@ __all__ = [
     "BillingDashboardStats",
     "ReceivablesAgeing",
     "ClientProfitability",
+    # Phase 4 - Audit & Accounting
+    "EngagementType",
+    "EngagementStatus",
+    "WorkingPaperStatus",
+    "RiskRating",
+    "PBCStatus",
+    "ReviewNoteStatus",
+    "ImportType",
+    "AccountGroup",
+    "AuditEngagement",
+    "PBCChecklistItem",
+    "WorkingPaper",
+    "RiskAssessment",
+    "ReviewNote",
+    "AuditDashboardStats",
+    "AccountingImport",
+    "TrialBalanceEntry",
+    "LedgerEntry",
+    "BankReconciliation",
+    "GSTReconciliation",
+    "TDSReconciliation",
+    "AccountingDashboardStats",
 ]
