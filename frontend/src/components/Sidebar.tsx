@@ -8,6 +8,8 @@ import {
   Calendar,
   DollarSign,
   Clock,
+  FileCheck,
+  Calculator,
   Settings,
   LogOut,
 } from 'lucide-react'
@@ -22,6 +24,8 @@ const navigation = [
   { name: 'Review Queue', href: '/review-queue', icon: FileText },
   { name: 'Compliance', href: '/compliance/dashboard', icon: Calendar },
   { name: 'Billing', href: '/billing', icon: DollarSign },
+  { name: 'Audit', href: '/audit/dashboard', icon: FileCheck },
+  { name: 'Accounting', href: '/accounting/dashboard', icon: Calculator },
   { name: 'Timesheets', href: '/timesheets', icon: Clock, badge: 'Coming Soon' },
 ]
 

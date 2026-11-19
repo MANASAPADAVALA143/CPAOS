@@ -18,6 +18,8 @@ import ReviewQueue from './pages/ReviewQueue'
 import ComplianceDashboard from './pages/ComplianceDashboard'
 import ComplianceCalendar from './pages/ComplianceCalendar'
 import BillingDashboard from './pages/BillingDashboard'
+import { AuditDashboard } from './pages/AuditDashboard'
+import { AccountingDashboard } from './pages/AccountingDashboard'
 
 export default function App() {
   return (
@@ -50,6 +52,12 @@ export default function App() {
       
       {/* Billing routes - Phase 3 */}
       <Route path="/billing" element={<Layout><BillingDashboard /></Layout>} />
+      
+      {/* Audit routes - Phase 4 */}
+      <Route path="/audit/dashboard" element={<Layout><AuditDashboard /></Layout>} />
+      
+      {/* Accounting routes - Phase 4 */}
+      <Route path="/accounting/dashboard" element={<Layout><AccountingDashboard /></Layout>} />
     </Routes>
   )
 }
